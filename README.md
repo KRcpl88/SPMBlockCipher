@@ -4,10 +4,10 @@ A simple, high performance block cipher that scales easily to arbitrarily large 
 The way this block cipher works is simple:
 
 1) Iterating over the entire block in overlapping 16 bit words, incrementing 8 bits at a time:
-  a) apply a substitution using a 16 bit substitution array (sbox) which maps all 16 bit values onto another randomly selected 16 bit value
-  b) Apply a 16 bit xor mask using a prng which increments for each 16 bit word after the substitution on the 16 bit output from the substitution step
-  c) repeat over the entire block, incrementing 8 bits at a time so that each operation overlaps the previous operation by 8 bits
-  d) when you get to the end of the block, reverse and repeat the same process going backwards until you get back to the beginning of the array
+    1) apply a substitution using a 16 bit substitution array (sbox) which maps all 16 bit values onto another randomly selected 16 bit value
+    2) Apply a 16 bit xor mask using a prng which increments for each 16 bit word after the substitution on the 16 bit output from the substitution step
+    3) repeat over the entire block, incrementing 8 bits at a time so that each operation overlaps the previous operation by 8 bits
+    4) when you get to the end of the block, reverse and repeat the same process going backwards until you get back to the beginning of the array
 2) As a final step, apply a randomly selected permutation to each 8bit byte of the block, mapping each 8bit byte randomly to another position in the block.
 
 The PRNG uses a 64 bit word state and key, and each time the PRNG is incremented, the key is added to the state, and then the new state is returned as the PRNG output.  The key is guaranteed to be odd (the least significant bit is always set to 1) so that the PRNG is guaranteed to produce a pseudo random sequence with a repeating period of 2^64, in other words it will enumerate all possible 64 bit words in pseudo random order before repeating.
