@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "FbCipherNet": {
+      "commandName": "Project",
+      "commandLineArgs": "EP F:\\Mine\\Misc\\FbCrypt64\\crypt.log F:\\Mine\\Misc\\FbCrypt64\\crypt.log.fbcp P@s$w0rd! b6a4c072764a2233db9c23b0bc79c143 "
+    }
+  }
+}
