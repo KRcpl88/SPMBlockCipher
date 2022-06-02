@@ -531,3 +531,18 @@ Add-Type -TypeDefinition $Source -Language CSharp
 $key = [Spm.Util]::ParsePassword('P@s$sw0rd!!', [Spm.SpmBlockCipher]::GetKeyWidth())
 
 # [Spm.Util]::SpmEncryptFile(string plaintext, string ciphertext, $key)
+
+# This is a usage example only
+
+$encryptor = New-Object -TypeName Spm.SpmBlockCipher
+$decryptor = New-Object -TypeName Spm.SpmBlockCipher
+$buffer = [Spm.Util]::HexToBin("0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F")
+$nonce = [Spm.Util]::GenNonceFromInput()
+[Spm.Util]::ApplyNonce($nonce, $key, $encryptor)
+$encryptor.Encrypt($buffer)
+[Spm.Util]::PrintBin($buffer)
+[Spm.Util]::ApplyNonce($nonce, $key, $decryptor)
+$decryptor.Decrypt($buffer)
+[Spm.Util]::PrintBin($buffer)
+
+
