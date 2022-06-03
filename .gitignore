@@ -1,3 +1,5 @@
 SpmCrypt64/.vs/*
 SpmCryptNet/obj/*
 SpmCryptNetTests/obj/*
+SpmCryptNet/bin/*
+SpmCryptNetTests/bin/*
