@@ -3,3 +3,6 @@ SpmCryptNet/obj/*
 SpmCryptNetTests/obj/*
 SpmCryptNet/bin/*
 SpmCryptNetTests/bin/*
+SpmCrypt64/Debug/*
+SpmCrypt64/Release/*
+*.obj
