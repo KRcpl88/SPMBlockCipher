@@ -84,11 +84,9 @@ void HexToBin(__inout_z char * pszHex, __in size_t nAlign, __out size_t* pcchBin
 
 void PrintBin(__in_ecount(cBin) unsigned char * pBin, __in size_t cBin)
 {
-    char rgBuf[3];
     while (cBin)
     {
-        _itoa(*pBin,rgBuf,16);
-        printf(rgBuf);
+        printf("%2.2X", *pBin);
         --cBin;
         ++pBin;
     }
@@ -744,6 +742,7 @@ int _tmain(int argc, _TCHAR* argv[])
         UnitTests::s_PermutationEncryptTest();
         UnitTests::s_PrngTest();
         UnitTests::s_NonceTest();
+        UnitTests::s_SingleBitFlipTest();
         return 0;
     }
 #endif // _DEBUG

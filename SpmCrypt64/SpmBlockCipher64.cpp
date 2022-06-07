@@ -7,10 +7,11 @@ CSimplePrng64::CSimplePrng64() : m_wState(0), m_wKey(0), m_idx(0)
 {
 }
 
-void CSimplePrng64::SetKeys(__in_ecount(cKeyData) const unsigned char*  pKeyData, size_t cbKeyData)
+void CSimplePrng64::SetKeys(__in_ecount(cKeyData) const unsigned char* pKeyData, size_t cbKeyData)
 {
-    ASSERT (cbKeyData <= s_GetKeyWidth())
+    ASSERT(cbKeyData <= s_GetKeyWidth())
 
+    m_idx = 0;
     m_wState = reinterpret_cast<const SPM_WORD *>(pKeyData)[0];
     m_wKey = reinterpret_cast<const SPM_WORD *>(pKeyData)[1];
     m_wKey |= 1;  // make sure it is odd

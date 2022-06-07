@@ -6,3 +6,4 @@ SpmCryptNetTests/bin/*
 SpmCrypt64/Debug/*
 SpmCrypt64/Release/*
 *.obj
+*.user

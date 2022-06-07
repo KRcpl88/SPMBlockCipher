@@ -20,6 +20,7 @@ namespace Spm
         {
             _state = 0;
             _key = 0;
+            _idx = 0;
         }
 
         public static void PrintCipherName()

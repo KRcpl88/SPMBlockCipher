@@ -8,7 +8,7 @@ int InitCodebook(char* pKeyData, CSpmBlockCipher64::BLOCK_MODE eBlockMode);
 void ParsePassword(__inout_z const char* pszPassword, __in size_t cbBin, __out_bcount(cbBin) unsigned char** ppBin);
 void HexToBin(__inout_z char* pszHex, __in size_t cchBin, __out_ecount(cchBin) unsigned char* pBin);
 void PrintBin(__in_ecount(cBin) unsigned char* pBin, __in size_t cBin);
-
+HRESULT MakeKey(    BYTE* pbKey,    size_t           cbKey);
 #ifdef _DEBUG
 
 int UnitTests::s_CompareBytes(__in_ecount(cBin) unsigned char* pBin1, __in_ecount(cBin) unsigned char* pBin2, __in size_t cBin)
@@ -133,6 +133,66 @@ void UnitTests::s_NonceTest()
     ASSERT(rgTemp[0] == 0x08);
     ASSERT(rgTemp[OneWayHash.s_GetKeyWidth()-1] == 0xF3);
     
+}
+
+// test if a single bit is changed in the input all output bits change with equal likelihood.
+void UnitTests::s_SingleBitFlipTest()
+{
+    unsigned char rgKey[4 * sizeof(SPM_WORD)] = { 0 };
+    char pDataHex[257] = "0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C";
+    FBC_CRYPT encryptor1;
+    FBC_CRYPT encryptor2;
+    unsigned char rgCipherText1[k_cSpmBlockSizeBytes] = { 0 };
+    unsigned char rgCipherText2[k_cSpmBlockSizeBytes] = { 0 };
+    unsigned char rgData1[k_cSpmBlockSizeBytes] = { 0 };
+    unsigned char rgData2[k_cSpmBlockSizeBytes] = { 0 };
+    int matchCount = 0;
+    int i = 0;
+
+    ASSERT(FBC_CRYPT::s_rgCodebook[0] == 0xbe7d);
+    ASSERT(FBC_CRYPT::s_rgCodebook[0xffff] == 0x655c);
+    ASSERT(FBC_CRYPT::s_prgPermutationCodebook != NULL);
+    ASSERT(FBC_CRYPT::s_prgPermutationCodebook[0] == 0x23);
+    ASSERT(FBC_CRYPT::s_prgPermutationCodebook[k_cSpmBlockSizeBytes - 1] == 0x2f);
+
+    ::HexToBin(pDataHex, ARRAYSIZE(rgData1), rgData1);
+    ::memcpy(rgData2, rgData1, ARRAYSIZE(rgData1));
+    rgData2[0] ^= 0x80; // flip 1 bit in rgData2
+
+    for (i = 0; 128 > i; ++i)
+    {
+        MakeKey(rgKey, ARRAYSIZE(rgKey));
+        printf("Key: ");
+        PrintBin(rgKey, ARRAYSIZE(rgKey));
+        printf("\n");
+        ASSERT(FBC_CRYPT::s_ValidKey(rgKey, ARRAYSIZE(rgKey)));
+
+        encryptor1.SetKeys(rgKey, ARRAYSIZE(rgKey));
+        encryptor2.SetKeys(rgKey, ARRAYSIZE(rgKey));
+
+        printf("Testing block 1\n");
+        ::memcpy(rgCipherText1, rgData1, ARRAYSIZE(rgData1));
+        encryptor1.Encrypt(rgCipherText1, ARRAYSIZE(rgCipherText1));
+        encryptor1.SetKeys(rgKey, ARRAYSIZE(rgKey));
+
+        // now flip 1 bit
+
+        printf("Testing block 2\n");
+        ::memcpy(rgCipherText2, rgData2, ARRAYSIZE(rgData2));
+        encryptor2.Encrypt(rgCipherText2, ARRAYSIZE(rgCipherText2));
+
+        printf("Block 1 encrypted: ");
+        PrintBin(rgCipherText1, ARRAYSIZE(rgCipherText1));
+        printf("\n");
+
+        printf("Block 2 encrypted: ");
+        PrintBin(rgCipherText2, ARRAYSIZE(rgCipherText2));
+        printf("\n");
+
+        matchCount = s_CompareBytes(rgCipherText1, rgCipherText2, ARRAYSIZE(rgCipherText2));
+        printf("matchCount = %i\n", matchCount);
+        ASSERT(matchCount < 4);
+    }
 }
 
 #endif //_DEBUG
