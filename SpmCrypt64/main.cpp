@@ -710,7 +710,7 @@ int _tmain(int argc, _TCHAR* argv[])
         return -1;
     }
 
-    printf("\nFast block cipher with permutation 64 bit version 2.0.20220527\n");
+    printf("\nSubstitutionPermutationMask cipher 64 bit version 2.0.20220607\n");
 
     if (((*(argv[1])) == 'L') || ((*(argv[1])) == 'l'))
     {

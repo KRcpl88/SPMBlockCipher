@@ -100,11 +100,11 @@ namespace Spm.Tests
         {
             int matchCount;
             int i;
-            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.NoPermutation);
+            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
 
             byte[] key;
 
-            for (i=0; 128 > i; ++i)
+            for (i=0; 32 > i; ++i)
             {
                 key = Util.MakeKey(SpmBlockCipher.GetKeyWidth());
                 Console.Write("Key: ");
@@ -138,7 +138,7 @@ namespace Spm.Tests
                 Console.WriteLine();
 
                 matchCount = CompareBytes(testData1, testData2);
-                Assert.IsTrue(matchCount < 4, "{0} bytes did not change", matchCount);
+                Assert.IsTrue(matchCount < 6, "{0} bytes did not change", matchCount);
             }
         }
     }
