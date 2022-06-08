@@ -32,7 +32,7 @@ class CSimplePrng64
 public:
     static void s_PrintCipherName()
     {
-      printf("%lu bit simple PRNG ", static_cast<unsigned long>(s_GetKeyWidth() * 8));
+      printf("%lu bit simple PRNG ", static_cast<unsigned long>(s_GetKeyWidth() * 8 - 1));
     }
 
     CSimplePrng64();
@@ -101,7 +101,7 @@ public:
     static void s_PrintCipherName()
     {
         printf("%lu bit SpmBlockCipher64 with %lu bit blocksize, %lu bit sbox, and ", 
-            static_cast<unsigned long>(s_GetKeyWidth() * 8),
+            static_cast<unsigned long>(s_GetKeyWidth() * 8 -2),
             static_cast<unsigned long>(k_cSpmBlockSizeBits),
             static_cast<unsigned long>(k_cSpmSBoxWidthBits));
         SPM_PRNG::s_PrintCipherName(); 
