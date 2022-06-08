@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <memory.h>
 #include <tchar.h>
+#include <ctime>
 
 // a codebook is a pre-stored initialization state for the sbox which is allready shuffled
 // using a codebook can reduce the per stream intialization cost

@@ -4,7 +4,6 @@
 #include "stdafx.h"
 #include "SpmBlockCipher64.h"
 #include "UnitTests.h"
-#include <time.h>
 
 
 // impleemnted in key.cpp
@@ -742,7 +741,8 @@ int _tmain(int argc, _TCHAR* argv[])
         UnitTests::s_PermutationEncryptTest();
         UnitTests::s_PrngTest();
         UnitTests::s_NonceTest();
-        UnitTests::s_SingleBitFlipTest();
+        //UnitTests::s_SingleBitFlipTest();
+        UnitTests::s_TestPerfVsAes();
         return 0;
     }
 #endif // _DEBUG

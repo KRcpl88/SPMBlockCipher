@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "UnitTests.h"
 
-#include "stdafx.h"
 #include "SpmBlockCipher64.h"
 
 int InitCodebook(char* pKeyData, CSpmBlockCipher64::BLOCK_MODE eBlockMode);
@@ -194,4 +193,86 @@ void UnitTests::s_SingleBitFlipTest()
     }
 }
 
+void UnitTests::s_TestPerfVsAes()
+{
+    BOOL            fSuccess = FALSE;
+    HCRYPTPROV      hCryptProv = NULL;
+    HCRYPTKEY       hKey = NULL;
+    clock_t         nStart;
+    clock_t         nFinish;
+    clock_t         nAesTimeMs = 0;
+    clock_t         nSpmTimeMs = 0;
+    DWORD           cbData = k_cSpmBlockSizeBytes * 0x10000;
+    unsigned char*  prgData = new unsigned char[k_cSpmBlockSizeBytes * 0x10001];
+
+    unsigned char* pKey = new unsigned char[FBC_CRYPT::s_GetKeyWidth()];
+    int nRetVal = 0;
+    int nMatchCount = 0;
+    char pPassword[16] = "P@s$w0rd!";
+    FBC_CRYPT fbcEncrypt;
+
+    ::ParsePassword(pPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
+    ASSERT(FBC_CRYPT::s_ValidKey(pKey, FBC_CRYPT::s_GetKeyWidth()));
+
+    MakeKey(prgData, cbData);
+
+// the perf test doesnt work when DIAGNOSTIC_OUTPUT is turned on
+#if DIAGNOSTIC_OUTPUT == 0
+    fbcEncrypt.SetKeys(pKey, FBC_CRYPT::s_GetKeyWidth());
+    nStart = clock();
+    fbcEncrypt.Encrypt(prgData, cbData);
+    nFinish = clock();
+    nSpmTimeMs = nFinish - nStart;
+#endif //DIAGNOSTIC_OUTPUT == 0
+
+
+    // acquire provider context
+    fSuccess = CryptAcquireContext(&hCryptProv, 
+        NULL, 
+        NULL, 
+        PROV_RSA_AES,
+        CRYPT_SILENT | CRYPT_VERIFYCONTEXT);
+    ASSERT(fSuccess);
+    if (fSuccess)
+    {
+        // generate random bytes
+        fSuccess = CryptGenKey(
+            hCryptProv,
+            CALG_AES_256,
+            0, 
+            &hKey);
+        ASSERT(fSuccess);
+        if (fSuccess)
+        {
+            nStart = clock();
+            fSuccess = CryptEncrypt(hKey,
+                NULL,  // hHash = no hash
+                true,  // Final
+                0,     // dwFlags
+                prgData,
+                &cbData,
+                k_cSpmBlockSizeBytes * 0x10001);
+            ASSERT(fSuccess);
+            nFinish = clock();
+            nAesTimeMs = (nFinish - nStart);
+        }
+    }
+
+    printf("SPM: %i\nAES: %i\n", nSpmTimeMs, nAesTimeMs);
+
+    if (hKey != NULL)
+    {
+        CryptDestroyKey(hKey);
+    }
+
+    // release context
+    if (hCryptProv != NULL)
+    {
+        CryptReleaseContext(hCryptProv, 0);
+    }
+
+
+}
 #endif //_DEBUG
+
+
