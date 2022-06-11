@@ -5,7 +5,7 @@ typedef unsigned short SPM_SBOX_WORD;
 
 const size_t k_cSpmBlockSizeWords = 16;
 const size_t k_cSpmBlockSizeBytes = k_cSpmBlockSizeWords * sizeof (SPM_WORD);
-const size_t k_cSpmBlockInflextionIndex = k_cSpmBlockSizeBytes - sizeof (SPM_SBOX_WORD) + 1; // reverse point for encrypting block
+const size_t k_cSpmBlockInflectionIndex = k_cSpmBlockSizeBytes - sizeof (SPM_SBOX_WORD) + 1; // reverse point for encrypting block
 const size_t k_cSpmBlockSizeBits = k_cSpmBlockSizeBytes * 8;
 
 const size_t k_cSpmWordWidthBits = 8 * sizeof (SPM_WORD);

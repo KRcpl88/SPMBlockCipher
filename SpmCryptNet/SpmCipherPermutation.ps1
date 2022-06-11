@@ -303,13 +303,13 @@ namespace Spm
     {
         public const uint BlockSizeWords = 16;
         public const uint BlockSizeBytes = BlockSizeWords * sizeof(SPM_WORD);
-        public const uint BlockInflextionIndex = BlockSizeBytes - sizeof(SPM_SBOX_WORD) + 1; // reverse point for encrypting block
+        public const uint BlockInflectionIndex = BlockSizeBytes - sizeof(SPM_SBOX_WORD) + 1; // reverse point for encrypting block
         public const uint BlockSizeBits = BlockSizeBytes * 8;
 
-        public const uint FbcWordWidthBits = 8 * sizeof(SPM_WORD);
-        public const uint FbcSBoxWidthBits = 8 * sizeof(SPM_SBOX_WORD);
+        public const uint SpmWordWidthBits = 8 * sizeof(SPM_WORD);
+        public const uint SpmSBoxWidthBits = 8 * sizeof(SPM_SBOX_WORD);
 
-        // defines log base 2 of the width of a SPM_WORD in bytes, for 64 bit words log2(8) = 3
+        // defines log base 2 of the width of a FBC_WORD in bytes, for 64 bit words log2(8) = 3
         public const uint SPM_LOG2_WORD_WIDTH = 3;
 
 
@@ -320,7 +320,7 @@ namespace Spm
         public static SPM_SBOX_WORD[] CodeBook = new SPM_SBOX_WORD[SPM_SBOX_WIDTH];
         public static byte[] PermutationCodeBook = null;
 
-        public const uint SPM_PRNG_NUM_KEYS = 2;
+        public const uint FBC_PRNG_NUM_KEYS = 2;
         private SPM_PRNG _sboxPrng = new SPM_PRNG();
         private SPM_PRNG _maskPrng = new SPM_PRNG();
         private SPM_SBOX_WORD[] _sbox = new SPM_SBOX_WORD[SPM_SBOX_WIDTH];
@@ -332,7 +332,7 @@ namespace Spm
 
         public static void PrintCipherName()
         {
-            Console.Write("{0} bit FastBlockCipher64 with {1} bit blocksize, {2} bit sbox, and ",
+            Console.Write("{0} bit SpmBlockCipher64 with {1} bit blocksize, {2} bit sbox, and ",
                 GetKeyWidth() * 8,
                 BlockSizeBits,
                 SpmSBoxWidthBits);
@@ -346,12 +346,14 @@ namespace Spm
             return keyWidth;
         }
 
-        public static void ConstructCodebook(BLOCK_MODE blockMode)
+        private static void s_ConstructCodebook(BLOCK_MODE blockMode)
         {
             int i;
             // initialize Sbox values to 0, 1, 2, ... N
             for (i = 0; CodeBook.Length > i; ++i)
             {
+                Debug.Assert(CodeBook[i] == 0);
+
                 CodeBook[i] = (SPM_SBOX_WORD)(i);
             }
 
@@ -367,19 +369,22 @@ namespace Spm
             // initialize permutation values to 0, 1, 2, ... N
             for (i = 0; BlockSizeBytes > i; ++i)
             {
+                Debug.Assert(PermutationCodeBook[i] == 0);
+
                 PermutationCodeBook[i] = (byte)(i);
             }
         }
 
-        public static void s_PermuteCodebook(int n, byte[] keyData)
+        private static void s_PermuteCodebook(int n, byte[] keyData)
         {
             SPM_SBOX_WORD rand;
             SPM_SBOX_WORD temp;
-            var prngPermutor = new SPM_PRNG();
+            var permutorPrng = new SPM_PRNG();
             size_t j;
             int i;
 
-            prngPermutor.SetKeys(keyData);
+            Debug.Assert(keyData.Length >= (int)SPM_PRNG.GetKeyWidth());
+            permutorPrng.SetKeys(keyData);
 
             for (i=0; n>i; ++i)
             {
@@ -387,7 +392,7 @@ namespace Spm
                 {
                     // remember the current value for this Sbox entry
                     temp = CodeBook[j];
-                    rand = prngPermutor.Rand();
+                    rand = permutorPrng.Rand();
 
                     // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
                     CodeBook[j] = CodeBook[rand];
@@ -407,7 +412,7 @@ namespace Spm
                 {
                     // remember the current value for this Sbox entry
                     temp = PermutationCodeBook[j];
-                    rand = (SPM_SBOX_WORD)(prngPermutor.Rand() % BlockSizeBytes);
+                    rand = (SPM_SBOX_WORD)(permutorPrng.Rand() % BlockSizeBytes);
 
                     // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
                     PermutationCodeBook[j] = PermutationCodeBook[rand];
@@ -416,7 +421,7 @@ namespace Spm
             }
         }
 
-        public static int s_InitCodebook(string keyData, BLOCK_MODE blockMode)
+        public static int InitCodebook(string keyData, BLOCK_MODE blockMode)
         {
             byte[] key = Util.HexToBin(keyData);
 
@@ -425,7 +430,7 @@ namespace Spm
                 return -1;
             }
 
-            ConstructCodebook(blockMode);
+            s_ConstructCodebook(blockMode);
 
             s_PermuteCodebook(16, key);
 
@@ -435,6 +440,10 @@ namespace Spm
         private void InitSbox()
         {
             // initialize Sbox values from codebook
+            Debug.Assert(_sbox != null);
+            Debug.Assert(CodeBook != null);
+            Debug.Assert(_sbox.Length == SPM_SBOX_WIDTH);
+            Debug.Assert(CodeBook.Length == SPM_SBOX_WIDTH);
             CodeBook.CopyTo(_sbox, 0);
 
             if (s_blockMode == BLOCK_MODE.NoPermutation)
@@ -442,6 +451,10 @@ namespace Spm
                 return;
             }
 
+            Debug.Assert(_blockPermutation != null);
+            Debug.Assert(PermutationCodeBook != null);
+            Debug.Assert(_blockPermutation.Length == BlockSizeBytes);
+            Debug.Assert(PermutationCodeBook.Length == BlockSizeBytes);
             PermutationCodeBook.CopyTo(_blockPermutation, 0);
         }
 
@@ -495,7 +508,7 @@ namespace Spm
             }
         }
 
-        public byte[] ShuffleBlockPermutation()
+        public byte[] ShuffleBlockPermutation(int j = 0, SPM_SBOX_WORD[,] blockPermutationEntropy = null)
         {
             SPM_SBOX_WORD rand;
             SPM_SBOX_WORD temp;
@@ -508,7 +521,9 @@ namespace Spm
             {
                 // remember the current value for this entry
                 temp = blockPermutation[i];
-                rand = (SPM_SBOX_WORD)(_sboxPrng.Rand() % (blockPermutation.Length));
+                rand = ((blockPermutationEntropy == null) ? 
+                    (SPM_SBOX_WORD)(_sboxPrng.Rand() % (blockPermutation.Length)) :
+                    blockPermutationEntropy[j,i]);
 
                 // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
                 blockPermutation[i] = blockPermutation[rand];
@@ -527,6 +542,7 @@ namespace Spm
             {
                 // if m_rgBlockPermutation[x] == y, rgReverseBlockPermutation[y] == x, so rgReverseBlockPermutation[rgBlockPermutation[x]] = x
                 // example, if rgBlockPermutation[0] == 236, rgReverseBlockPermutation[236] = 0
+                Debug.Assert(blockPermutation[i] < reverseBlockPermutation.Length);
                 reverseBlockPermutation[blockPermutation[i]] = (byte)i;
             }
 
@@ -543,6 +559,7 @@ namespace Spm
         public void SetKeys(byte[] keyData, int cbOffest = 0)
         {
             int prngKeyWidth = (int)SPM_PRNG.GetKeyWidth();
+            Debug.Assert(keyData.Length >= cbOffest + prngKeyWidth + prngKeyWidth);
 
             _sboxPrng.SetKeys(keyData, cbOffest);
             _maskPrng.SetKeys(keyData, cbOffest + prngKeyWidth);
@@ -554,105 +571,133 @@ namespace Spm
 
         public void Encrypt(byte[] data)
         {
-            int i, j;
+            int i, j, k;
             SPM_SBOX_WORD mask = 0;
             SPM_SBOX_WORD temp = 0;
             byte[] blockPermutation;
             var permutationBuffer = new byte[BlockSizeBytes];
 
+
+            Debug.Assert((data.Length % BlockSizeBytes) == 0);
+
             for (i = 0; i < data.Length; i += (int)BlockSizeBytes)
             {
-                for (j = 0; j < BlockInflextionIndex; ++j)
+                for (j = 0; 3 > j; ++j)
                 {
-                    // apply mask
-                    mask = _maskPrng.Rand();
-                    temp = BitConverter.ToUInt16(data, i + j);
-                    temp ^= mask;
+                    for (k = 0; k < BlockInflectionIndex; ++k)
+                    {
+                        // apply mask
+                        mask = _maskPrng.Rand();
+                        temp = BitConverter.ToUInt16(data, i + k);
+                        temp ^= mask;
 
-                    // apply substitution
-                    temp = _sbox[temp];
-                    BitConverter.GetBytes(temp).CopyTo(data, i + j);
+                        // apply substitution
+                        temp = _sbox[temp];
+                        BitConverter.GetBytes(temp).CopyTo(data, i + k);
+                    }
+
+                    // now reverse
+                    for (k -= 2; k >= 0; --k)
+                    {
+
+                        // apply mask
+                        mask = _maskPrng.Rand();
+                        temp = BitConverter.ToUInt16(data, i + k);
+                        temp ^= mask;
+
+                        // apply substitution
+                        temp = _sbox[temp];
+                        BitConverter.GetBytes(temp).CopyTo(data, i + k);
+                    }
+
+                    // check for BLOCK_MODE::Permutation
+                    if (s_blockMode == BLOCK_MODE.NoPermutation)
+                    {
+                        continue;
+                    }
+
+                    // permute output
+                    blockPermutation = ShuffleBlockPermutation();
+                    for (k = 0; BlockSizeBytes > k; ++k)
+                    {
+                        permutationBuffer[blockPermutation[k]] = data[i + k];
+                    }
+                    permutationBuffer.CopyTo(data, i);
                 }
-
-                // now reverse
-                for (j -= 2; j >= 0; --j)
-                {
-                    // apply mask
-                    mask = _maskPrng.Rand();
-                    temp = BitConverter.ToUInt16(data, i + j);
-                    temp ^= mask;
-
-                    // apply substitution
-                    temp = _sbox[temp];
-                    BitConverter.GetBytes(temp).CopyTo(data, i + j);
-                }
-
-                // check for BLOCK_MODE::Permutation
-                if (s_blockMode == BLOCK_MODE.NoPermutation)
-                {
-                    continue;
-                }
-
-                // permute output
-                blockPermutation = ShuffleBlockPermutation();
-                for (j = 0; BlockSizeBytes > j; ++j)
-                {
-                    permutationBuffer[blockPermutation[j]] = data[i+j];
-                }
-                permutationBuffer.CopyTo(data, i);
             }
         }
 
         public void Decrypt(byte [] data)
         {
-            int i, j, k;
-            var mask = new SPM_SBOX_WORD[2 * BlockInflextionIndex - 1];
+            int i, j, k, l;
+            var mask = new SPM_SBOX_WORD[6 * BlockInflectionIndex - 3];
+            var blockPermutationEntropy = new SPM_SBOX_WORD[3, BlockSizeBytes];
             SPM_SBOX_WORD temp = 0;
             var permutationBuffer = new byte[BlockSizeBytes];
             byte[] reverseBlockPermutation;
 
+            Debug.Assert((data.Length % BlockSizeBytes) == 0);
+
             for (i = 0; i < data.Length; i += (int)BlockSizeBytes)
             {
-                // fill rgMask 
-                for (k = 0; k < mask.Length; ++k)
+                l = 0;
+                for (j = 0; 3 > j; ++j)
                 {
-                    mask[k] = _maskPrng.Rand();
-                }
-
-                if (s_blockMode == BLOCK_MODE.Permutation)
-                {
-                    reverseBlockPermutation = ReverseBlockPermutation(ShuffleBlockPermutation());
-
-                    // reverse permutation on input
-                    for (j = 0; BlockSizeBytes > j; ++j)
+                    // fill rgMask 
+                    for (k = 0; k < (2 * BlockInflectionIndex - 1); ++k)
                     {
-                        permutationBuffer[reverseBlockPermutation[j]] = data[i+j];
+                        mask[l] = _maskPrng.Rand();
+                        ++l;
                     }
-                    permutationBuffer.CopyTo(data, i);
+
+                    if (s_blockMode == BLOCK_MODE.Permutation)
+                    {
+                        for (k = 0; k < BlockSizeBytes; ++k)
+                        {
+                            blockPermutationEntropy[j,k] = (SPM_SBOX_WORD)(_sboxPrng.Rand() % BlockSizeBytes);
+                        }
+                    }
                 }
 
-                for (j = 0; j < BlockInflextionIndex; ++j)
+                for (j = 2; 0 <= j; --j)
                 {
-                    --k;
+                    if (s_blockMode == BLOCK_MODE.Permutation)
+                    {
+                        reverseBlockPermutation = ReverseBlockPermutation(ShuffleBlockPermutation(j, blockPermutationEntropy));
+                        Debug.Assert(reverseBlockPermutation.Length == BlockSizeBytes);
+                        // reverse permutation on input
+                        for (k = 0; BlockSizeBytes > k; ++k)
+                        {
+                            permutationBuffer[reverseBlockPermutation[k]] = data[i + k];
+                        }
+                        permutationBuffer.CopyTo(data, i);
+                    }
 
-                    // reverse substitution
-                    temp = _reverseSbox[BitConverter.ToUInt16(data, i + j)];
+                    for (k = 0; k < BlockInflectionIndex; ++k)
+                    {
+                        Debug.Assert(l != 0);
+                        --l;
 
-                    // reverse mask
-                    temp ^= mask[k];
-                    BitConverter.GetBytes(temp).CopyTo(data, i + j);
-                }
+                        // reverse substitution
+                        temp = _reverseSbox[BitConverter.ToUInt16(data, i + k)];
 
-                // now reverse
-                for (j -= 2; j >= 0; --j)
-                {
-                    --k;
-                    // reverse substitution
-                    temp = _reverseSbox[BitConverter.ToUInt16(data, i + j)];
+                        // reverse mask
+                        temp ^= mask[l];
+                        BitConverter.GetBytes(temp).CopyTo(data, i + k);
+                    }
 
-                    // reverse mask
-                    temp ^= mask[k];
-                    BitConverter.GetBytes(temp).CopyTo(data, i + j);
+                    // now reverse
+                    for (k -= 2; k >= 0; --k)
+                    {
+                        Debug.Assert(l != 0);
+                        --l;
+                        // reverse substitution
+                        temp = _reverseSbox[BitConverter.ToUInt16(data, i + k)];
+
+                        // reverse mask
+                        temp ^= mask[l];
+                        BitConverter.GetBytes(temp).CopyTo(data, i + k);
+                    }
                 }
             }
         }
@@ -662,7 +707,7 @@ namespace Spm
 
 Add-Type -TypeDefinition $Source -Language CSharp 
 
-[Spm.SpmBlockCipher]::s_InitCodebook("b6a4c072764a2233db9c23b0bc79c143", [Spm.SpmBlockCipher+BLOCK_MODE]::Permutation)
+[Spm.SpmBlockCipher]::InitCodebook("b6a4c072764a2233db9c23b0bc79c143", [Spm.SpmBlockCipher+BLOCK_MODE]::Permutation)
 $key = [Spm.Util]::ParsePassword('P@s$sw0rd!!', [Spm.SpmBlockCipher]::GetKeyWidth())
 
 # [Spm.Util]::SpmEncryptFile(string plaintext, string ciphertext, $key)

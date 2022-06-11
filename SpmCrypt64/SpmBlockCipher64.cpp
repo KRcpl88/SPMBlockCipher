@@ -314,7 +314,7 @@ void CSpmBlockCipher64::Encrypt(__in_bcount(cbData) unsigned char * pData, size_
             printf("Round %I64u\n", j);
 #endif// DIAGNOSTIC_OUTPUT ==1
             pBlock = pData + i;
-            for (k = 0; k < k_cSpmBlockInflextionIndex; ++k)
+            for (k = 0; k < k_cSpmBlockInflectionIndex; ++k)
             {
 #if DIAGNOSTIC_OUTPUT ==1
                 printf("%I64u:%I64u: raw %lX", i, k, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
@@ -337,7 +337,7 @@ void CSpmBlockCipher64::Encrypt(__in_bcount(cbData) unsigned char * pData, size_
             C_ASSERT((((size_t)0) - 1) > 0);
 
             // now reverse
-            for (k -= 2; k < k_cSpmBlockInflextionIndex; --k)
+            for (k -= 2; k < k_cSpmBlockInflectionIndex; --k)
             {
 #if DIAGNOSTIC_OUTPUT ==1
                 printf("%I64u:%I64u: raw %lX", i, k, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
@@ -381,7 +381,7 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
 {
     size_t i,j,k,l;
     unsigned char *pBlock = NULL;
-    SPM_SBOX_WORD rgMask[6 * k_cSpmBlockInflextionIndex-3] = {0};
+    SPM_SBOX_WORD rgMask[6 * k_cSpmBlockInflectionIndex-3] = {0};
     SPM_SBOX_WORD rgBlockPermutationEntropy[3][k_cSpmBlockSizeBytes] = { 0 };
     unsigned char rgPermutationBuffer[k_cSpmBlockSizeBytes] = { 0 };
     unsigned char rgBlockPermutation[k_cSpmBlockSizeBytes] = { 0 };
@@ -397,7 +397,7 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
         l = 0;
         for (j = 0; 3 > j; ++j)
         {
-            for (k = 0; k < (2 * k_cSpmBlockInflextionIndex - 1); ++k)
+            for (k = 0; k < (2 * k_cSpmBlockInflectionIndex - 1); ++k)
             {
                 rgMask[l] = m_prngMask.Rand();
                 ++l;
@@ -412,6 +412,7 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
             }
         }
 
+        // j is unsigned, so 3 > j is equivalent to j >= 0 because 0-1 == 0xffffffffffffffff
         for (j = 2; 3 > j; --j)
         {
 #if DIAGNOSTIC_OUTPUT ==1
@@ -434,7 +435,7 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
                 ::memcpy(pBlock, rgPermutationBuffer, k_cSpmBlockSizeBytes);
             }
 
-            for (k = 0; k < k_cSpmBlockInflextionIndex; ++k)
+            for (k = 0; k < k_cSpmBlockInflectionIndex; ++k)
             {
                 ASSERT(l != 0);
                 --l;
@@ -455,7 +456,7 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
             }
 
             // now reverse
-            for (k -= 2; k < k_cSpmBlockInflextionIndex; --k)
+            for (k -= 2; k < k_cSpmBlockInflectionIndex; --k)
             {
                 ASSERT(l != 0);
                 --l;
