@@ -7,10 +7,11 @@ CSimplePrng64::CSimplePrng64() : m_wState(0), m_wKey(0), m_idx(0)
 {
 }
 
-void CSimplePrng64::SetKeys(__in_ecount(cKeyData) const unsigned char*  pKeyData, size_t cbKeyData)
+void CSimplePrng64::SetKeys(__in_ecount(cKeyData) const unsigned char* pKeyData, size_t cbKeyData)
 {
-    ASSERT (cbKeyData <= s_GetKeyWidth())
+    ASSERT(cbKeyData <= s_GetKeyWidth())
 
+    m_idx = 0;
     m_wState = reinterpret_cast<const SPM_WORD *>(pKeyData)[0];
     m_wKey = reinterpret_cast<const SPM_WORD *>(pKeyData)[1];
     m_wKey |= 1;  // make sure it is odd
@@ -133,6 +134,9 @@ void CSpmBlockCipher64::s_PermuteCodebook(int n, __in_ecount(cKeyData) const uns
 
 void CSpmBlockCipher64::InitSbox()
 {
+    // math is specific to 64 bit version
+    C_ASSERT(sizeof(size_t) == sizeof(INT64));
+
     // initialize Sbox values from codebook
     ::memcpy(m_rgSbox, s_rgCodebook, sizeof(m_rgSbox));
 
@@ -229,7 +233,7 @@ void CSpmBlockCipher64::PermuteSbox()
 #endif // _DEBUG
 }
 
-void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation)
+void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation, __in_ecount_opt(k_cSpmBlockSizeBytes) SPM_SBOX_WORD* prgBlockPermutationEntropy)
 {
     size_t i;
     SPM_SBOX_WORD nTemp;
@@ -240,12 +244,18 @@ void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeByte
     {
         // remember the current value for this entry
         nTemp = rgBlockPermutation[i];
-        nRand = m_prngSBox.Rand() % k_cSpmBlockSizeBytes;
+        nRand = (prgBlockPermutationEntropy ? prgBlockPermutationEntropy[i] : (m_prngSBox.Rand() % k_cSpmBlockSizeBytes)) ;
 
         // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
         rgBlockPermutation[i] = rgBlockPermutation[nRand];
         rgBlockPermutation[nRand] = static_cast<unsigned char>(nTemp);
+#if DIAGNOSTIC_OUTPUT ==1
+        printf("%I64u <-> %u (%2.2X <-> %2.2X), ", i, nRand, rgBlockPermutation[i], rgBlockPermutation[nRand]);
+#endif// DIAGNOSTIC_OUTPUT ==1
     }
+#if DIAGNOSTIC_OUTPUT ==1
+    printf("\n");
+#endif// DIAGNOSTIC_OUTPUT ==1
 }
 
 void CSpmBlockCipher64::ReverseBlockPermutation(__in_ecount(k_cSpmBlockSizeBytes) const unsigned char* rgBlockPermutation, __out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgReverseBlockPermutation)
@@ -287,7 +297,7 @@ void CSpmBlockCipher64::SetKeys(__in_bcount(cbKeyData) const unsigned char * pKe
 
 void CSpmBlockCipher64::Encrypt(__in_bcount(cbData) unsigned char * pData, size_t cbData)
 {
-    size_t i,j;
+    size_t i,j,k;
     unsigned char *pBlock = NULL;
     SPM_SBOX_WORD nMask = 0;
     unsigned char rgPermutationBuffer[k_cSpmBlockSizeBytes] = { 0 };
@@ -296,149 +306,175 @@ void CSpmBlockCipher64::Encrypt(__in_bcount(cbData) unsigned char * pData, size_
 
     ASSERT ((cbData%k_cSpmBlockSizeBytes) == 0);
 
-    for (i=0; i < cbData; i += k_cSpmBlockSizeBytes)
+    for (i = 0; i < cbData; i += k_cSpmBlockSizeBytes)
     {
-        pBlock = pData + i;
-        for (j=0; j<k_cSpmBlockInflextionIndex; ++j)
+        for (j = 0; 3 > j; ++j)
         {
 #if DIAGNOSTIC_OUTPUT ==1
-            printf("%I64u:%I64u: raw %lX", i, j, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) );
+            printf("Round %I64u\n", j);
 #endif// DIAGNOSTIC_OUTPUT ==1
-            // apply mask
-            nMask = m_prngMask.Rand();
-            *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) ^= nMask;
+            pBlock = pData + i;
+            for (k = 0; k < k_cSpmBlockInflectionIndex; ++k)
+            {
 #if DIAGNOSTIC_OUTPUT ==1
-            printf(" mask %lX (%lX)", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)), nMask);
+                printf("%I64u:%I64u: raw %lX", i, k, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
+#endif// DIAGNOSTIC_OUTPUT ==1
+                // apply mask
+                nMask = m_prngMask.Rand();
+                *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)) ^= nMask;
+#if DIAGNOSTIC_OUTPUT ==1
+                printf(" mask %lX (%lX)", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)), nMask);
 #endif// DIAGNOSTIC_OUTPUT ==1
 
-            // apply substitution
-            *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) = m_rgSbox[*(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j))];
+                // apply substitution
+                * (reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)) = m_rgSbox[*(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k))];
 #if DIAGNOSTIC_OUTPUT ==1
-            printf(" sub %lX\n", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) );
+                printf(" sub %lX\n", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
 #endif// DIAGNOSTIC_OUTPUT ==1
+            }
+
+            // make sure size_t is unsigned
+            C_ASSERT((((size_t)0) - 1) > 0);
+
+            // now reverse
+            for (k -= 2; k < k_cSpmBlockInflectionIndex; --k)
+            {
+#if DIAGNOSTIC_OUTPUT ==1
+                printf("%I64u:%I64u: raw %lX", i, k, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
+#endif// DIAGNOSTIC_OUTPUT ==1
+                // apply mask
+                nMask = m_prngMask.Rand();
+                *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)) ^= nMask;
+#if DIAGNOSTIC_OUTPUT ==1
+                printf(" mask %lX (%lX)", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)), nMask);
+#endif// DIAGNOSTIC_OUTPUT ==1
+
+                // apply substitution
+                * (reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)) = m_rgSbox[*(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k))];
+#if DIAGNOSTIC_OUTPUT ==1
+                printf(" sub %lX\n", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
+#endif// DIAGNOSTIC_OUTPUT ==1
+            }
+
+            // check for BLOCK_MODE::Permutation
+            if (s_eBlockMode == BLOCK_MODE::NoPermutation)
+            {
+                continue;
+            }
+
+            // permute output
+            ShuffleBlockPermutation(rgBlockPermutation);
+            for (k = 0; k_cSpmBlockSizeBytes > k; ++k)
+            {
+                rgPermutationBuffer[rgBlockPermutation[k]] = pBlock[k];
+#if DIAGNOSTIC_OUTPUT ==1
+                printf("%I64u: map %I64u -> %u raw %X\n", i, k, rgBlockPermutation[k], pBlock[k]);
+#endif// DIAGNOSTIC_OUTPUT ==1
+            }
+            ::memcpy(pBlock, rgPermutationBuffer, k_cSpmBlockSizeBytes);
         }
-
-        // make sure size_t is unsigned
-        C_ASSERT ((((size_t)0)-1) > 0);
-
-        // now reverse
-        for (j -= 2; j<k_cSpmBlockInflextionIndex; --j)
-        {
-#if DIAGNOSTIC_OUTPUT ==1
-            printf("%I64u:%I64u: raw %lX", i, j, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) );
-#endif// DIAGNOSTIC_OUTPUT ==1
-            // apply mask
-            nMask = m_prngMask.Rand();
-            *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) ^= nMask;
-#if DIAGNOSTIC_OUTPUT ==1
-            printf(" mask %lX (%lX)", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)), nMask);
-#endif// DIAGNOSTIC_OUTPUT ==1
-
-            // apply substitution
-            *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) = m_rgSbox[*(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j))];
-#if DIAGNOSTIC_OUTPUT ==1
-            printf(" sub %lX\n", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) );
-#endif// DIAGNOSTIC_OUTPUT ==1
-        }
-
-        // check for BLOCK_MODE::Permutation
-        if (s_eBlockMode == BLOCK_MODE::NoPermutation)
-        {
-            continue;
-        }
-
-        // permute output
-        ShuffleBlockPermutation(rgBlockPermutation);
-        for (j = 0; k_cSpmBlockSizeBytes > j ; ++j)
-        {
-            rgPermutationBuffer[rgBlockPermutation[j]] = pBlock[j];
-#if DIAGNOSTIC_OUTPUT ==1
-            printf("%I64u: map %I64u -> %u raw %X\n", i, j, rgBlockPermutation[j], pBlock[j]);
-#endif// DIAGNOSTIC_OUTPUT ==1
-        }
-        ::memcpy(pBlock, rgPermutationBuffer, k_cSpmBlockSizeBytes);
     }
 }
 
 
 void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_t cbData)
 {
-    size_t i,j,k;
+    size_t i,j,k,l;
     unsigned char *pBlock = NULL;
-    SPM_SBOX_WORD rgMask[2 * k_cSpmBlockInflextionIndex-1] = {0};
+    SPM_SBOX_WORD rgMask[6 * k_cSpmBlockInflectionIndex-3] = {0};
+    SPM_SBOX_WORD rgBlockPermutationEntropy[3][k_cSpmBlockSizeBytes] = { 0 };
     unsigned char rgPermutationBuffer[k_cSpmBlockSizeBytes] = { 0 };
     unsigned char rgBlockPermutation[k_cSpmBlockSizeBytes] = { 0 };
     unsigned char rgReverseBlockPermutation[k_cSpmBlockSizeBytes] = { 0 };
 
     ASSERT ((cbData%k_cSpmBlockSizeBytes) == 0);
 
+    // make sure size_t is unsigned
+    C_ASSERT ((((size_t)0)-1) > 0);
     for (i=0; i < cbData; i += k_cSpmBlockSizeBytes)
     {
-        // make sure size_t is unsigned
-        C_ASSERT ((((size_t)0)-1) > 0);
-
-        // fill rgMask 
-        for (k=0; k < ARRAYSIZE(rgMask); ++k)
+        // fill rgMask and rgBlockPermutationEntropy
+        l = 0;
+        for (j = 0; 3 > j; ++j)
         {
-            rgMask[k] = m_prngMask.Rand();
+            for (k = 0; k < (2 * k_cSpmBlockInflectionIndex - 1); ++k)
+            {
+                rgMask[l] = m_prngMask.Rand();
+                ++l;
+            }
+
+            if (s_eBlockMode == BLOCK_MODE::Permutation)
+            {
+                for (k = 0; k < k_cSpmBlockSizeBytes; ++k)
+                {
+                    rgBlockPermutationEntropy[j][k] = (m_prngSBox.Rand() % k_cSpmBlockSizeBytes);
+                }
+            }
         }
 
-        pBlock = pData + i;
-        if (s_eBlockMode == BLOCK_MODE::Permutation)
+        // j is unsigned, so 3 > j is equivalent to j >= 0 because 0-1 == 0xffffffffffffffff
+        for (j = 2; 3 > j; --j)
         {
-            ShuffleBlockPermutation(rgBlockPermutation);
-            ReverseBlockPermutation(rgBlockPermutation, rgReverseBlockPermutation);
-
-            // reverse permutation on input
-            for (j = 0; k_cSpmBlockSizeBytes > j; ++j)
-            {
-                rgPermutationBuffer[rgReverseBlockPermutation[j]] = pBlock[j];
 #if DIAGNOSTIC_OUTPUT ==1
-                printf("%I64u: map %I64u -> %u raw %X\n", i, j, rgReverseBlockPermutation[j], pBlock[j]);
+            printf("Round %I64u\n", j);
+#endif// DIAGNOSTIC_OUTPUT ==1
+            pBlock = pData + i;
+            if (s_eBlockMode == BLOCK_MODE::Permutation)
+            {
+                ShuffleBlockPermutation(rgBlockPermutation, rgBlockPermutationEntropy[j]);
+                ReverseBlockPermutation(rgBlockPermutation, rgReverseBlockPermutation);
+
+                // reverse permutation on input
+                for (k = 0; k_cSpmBlockSizeBytes > k; ++k)
+                {
+                    rgPermutationBuffer[rgReverseBlockPermutation[k]] = pBlock[k];
+#if DIAGNOSTIC_OUTPUT ==1
+                    printf("%I64u: map %I64u -> %u raw %X\n", i, k, rgReverseBlockPermutation[k], pBlock[k]);
+#endif// DIAGNOSTIC_OUTPUT ==1
+                }
+                ::memcpy(pBlock, rgPermutationBuffer, k_cSpmBlockSizeBytes);
+            }
+
+            for (k = 0; k < k_cSpmBlockInflectionIndex; ++k)
+            {
+                ASSERT(l != 0);
+                --l;
+#if DIAGNOSTIC_OUTPUT ==1
+                printf("%I64u:%I64u: raw %X", i, k, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
+#endif// DIAGNOSTIC_OUTPUT ==1
+                // reverse substitution
+                * (reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)) = m_rgReverseSbox[*(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k))];
+#if DIAGNOSTIC_OUTPUT ==1
+                printf(" sub %X", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
+#endif// DIAGNOSTIC_OUTPUT ==1
+
+                // reverse mask
+                * (reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)) ^= rgMask[l];
+#if DIAGNOSTIC_OUTPUT ==1
+                printf(" mask %X (%X)\n", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)), rgMask[l]);
 #endif// DIAGNOSTIC_OUTPUT ==1
             }
-            ::memcpy(pBlock, rgPermutationBuffer, k_cSpmBlockSizeBytes);
-        }
 
-        for (j=0; j<k_cSpmBlockInflextionIndex; ++j)
-        {
-            ASSERT (k != 0);
-            --k;
+            // now reverse
+            for (k -= 2; k < k_cSpmBlockInflectionIndex; --k)
+            {
+                ASSERT(l != 0);
+                --l;
+                // reverse substitution
 #if DIAGNOSTIC_OUTPUT ==1
-            printf("%I64u:%I64u: raw %X", i, j, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) );
+                printf("%I64u:%I64u: raw %X", i, k, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
 #endif// DIAGNOSTIC_OUTPUT ==1
-            // reverse substitution
-            *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) = m_rgReverseSbox[*(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j))];
+                * (reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)) = m_rgReverseSbox[*(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k))];
 #if DIAGNOSTIC_OUTPUT ==1
-            printf(" sub %X", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) );
-#endif// DIAGNOSTIC_OUTPUT ==1
-
-            // reverse mask
-            *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) ^= rgMask[k];
-#if DIAGNOSTIC_OUTPUT ==1
-            printf(" mask %X (%X)\n", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)), rgMask[k] );
-#endif// DIAGNOSTIC_OUTPUT ==1
-        }
-        
-        // now reverse
-        for (j -= 2; j<k_cSpmBlockInflextionIndex; --j)
-        {
-            ASSERT (k != 0);
-            --k;
-            // reverse substitution
-#if DIAGNOSTIC_OUTPUT ==1
-            printf("%I64u:%I64u: raw %X", i, j, *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) );
-#endif// DIAGNOSTIC_OUTPUT ==1
-            *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) = m_rgReverseSbox[*(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j))];
-#if DIAGNOSTIC_OUTPUT ==1
-            printf(" sub %X", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) );
+                printf(" sub %X", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)));
 #endif// DIAGNOSTIC_OUTPUT ==1
 
-            // reverse mask
-            *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)) ^= rgMask[k];
+                // reverse mask
+                * (reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)) ^= rgMask[l];
 #if DIAGNOSTIC_OUTPUT ==1
-            printf(" mask %X (%X)\n", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock+j)), rgMask[k] );
+                printf(" mask %X (%X)\n", *(reinterpret_cast<SPM_SBOX_WORD*>(pBlock + k)), rgMask[l]);
 #endif// DIAGNOSTIC_OUTPUT ==1
+            }
         }
     }
 }

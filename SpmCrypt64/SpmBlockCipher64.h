@@ -5,7 +5,7 @@ typedef unsigned short SPM_SBOX_WORD;
 
 const size_t k_cSpmBlockSizeWords = 16;
 const size_t k_cSpmBlockSizeBytes = k_cSpmBlockSizeWords * sizeof (SPM_WORD);
-const size_t k_cSpmBlockInflextionIndex = k_cSpmBlockSizeBytes - sizeof (SPM_SBOX_WORD) + 1; // reverse point for encrypting block
+const size_t k_cSpmBlockInflectionIndex = k_cSpmBlockSizeBytes - sizeof (SPM_SBOX_WORD) + 1; // reverse point for encrypting block
 const size_t k_cSpmBlockSizeBits = k_cSpmBlockSizeBytes * 8;
 
 const size_t k_cSpmWordWidthBits = 8 * sizeof (SPM_WORD);
@@ -32,7 +32,7 @@ class CSimplePrng64
 public:
     static void s_PrintCipherName()
     {
-      printf("%lu bit simple PRNG ", static_cast<unsigned long>(s_GetKeyWidth() * 8));
+      printf("%lu bit simple PRNG ", static_cast<unsigned long>(s_GetKeyWidth() * 8 - 1));
     }
 
     CSimplePrng64();
@@ -87,7 +87,7 @@ protected:
 
     void PermuteSbox();
 
-    void ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation);
+    void ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation, __in_ecount_opt(k_cSpmBlockSizeBytes) SPM_SBOX_WORD* prgBlockPermutationEntropy = NULL);
     void ReverseBlockPermutation(__in_ecount(k_cSpmBlockSizeBytes) const unsigned char* rgBlockPermutation, __out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgReverseBlockPermutation);
 
 public:
@@ -101,7 +101,7 @@ public:
     static void s_PrintCipherName()
     {
         printf("%lu bit SpmBlockCipher64 with %lu bit blocksize, %lu bit sbox, and ", 
-            static_cast<unsigned long>(s_GetKeyWidth() * 8),
+            static_cast<unsigned long>(s_GetKeyWidth() * 8 -2),
             static_cast<unsigned long>(k_cSpmBlockSizeBits),
             static_cast<unsigned long>(k_cSpmSBoxWidthBits));
         SPM_PRNG::s_PrintCipherName(); 

@@ -1,4 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Text;
 
 namespace Spm.Tests
@@ -31,7 +32,7 @@ namespace Spm.Tests
             encryptor.SetKeys(key);
             decryptor.SetKeys(key);
 
-            TestEncryption(encryptor, decryptor, 0xe2, 0xeb);
+            TestEncryption(encryptor, decryptor, 0x10, 0xe5);
         }
 
         private static void TestEncryption(SpmBlockCipher encryptor, SpmBlockCipher decryptor, byte firstByte, byte lastByte)
@@ -49,7 +50,7 @@ namespace Spm.Tests
             Assert.IsTrue(buffer[0] == firstByte);
             Assert.IsTrue(buffer[SpmBlockCipher.BlockSizeBytes * 2 - 1] == lastByte);
 
-            Assert.IsTrue(matchCount < 16);
+            Assert.IsTrue(matchCount < 4);
 
             decryptor.Decrypt(buffer);
             matchCount = CompareBytes(testData, buffer);
@@ -75,7 +76,7 @@ namespace Spm.Tests
             Util.ApplyNonce(nonce, key, encryptor);
             Util.ApplyNonce(nonce, key, decryptor);
 
-            TestEncryption(encryptor, decryptor, 0xc6, 0x09);
+            TestEncryption(encryptor, decryptor, 0x4f, 0x4a);
         }
 
         private static int CompareBytes(byte[] pTestData, byte[] pBuffer)
@@ -92,6 +93,53 @@ namespace Spm.Tests
             }
 
             return matchCount;
+        }
+
+        [TestMethod()]
+        public void TestSingleBitFlip()
+        {
+            int matchCount;
+            int i;
+            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
+
+            byte[] key;
+
+            for (i=0; 32 > i; ++i)
+            {
+                key = Util.MakeKey(SpmBlockCipher.GetKeyWidth());
+                Console.Write("Key: ");
+                Util.PrintBin(key);
+                Console.WriteLine();
+
+                Assert.IsTrue(SpmBlockCipher.s_ValidKey(key));
+
+                var encryptor = new SpmBlockCipher();
+                encryptor.SetKeys(key);
+
+                Console.WriteLine("Testing block 1");
+                var testData1 = Util.HexToBin("0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C");
+                encryptor.Encrypt(testData1);
+
+                // now flip 1 bit
+                encryptor = new SpmBlockCipher();
+                encryptor.SetKeys(key);
+
+                Console.WriteLine("Testing block 2");
+                var testData2 = Util.HexToBin("8F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C");
+
+                encryptor.Encrypt(testData2);
+
+                Console.WriteLine("Block 1 encrypted:");
+                Util.PrintBin(testData1);
+                Console.WriteLine();
+
+                Console.WriteLine("Block 2 encrypted:");
+                Util.PrintBin(testData2);
+                Console.WriteLine();
+
+                matchCount = CompareBytes(testData1, testData2);
+                Assert.IsTrue(matchCount < 6, "{0} bytes did not change", matchCount);
+            }
         }
     }
 }

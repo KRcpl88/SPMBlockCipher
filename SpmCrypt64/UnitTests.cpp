@@ -1,14 +1,13 @@
 #include "stdafx.h"
 #include "UnitTests.h"
 
-#include "stdafx.h"
 #include "SpmBlockCipher64.h"
 
 int InitCodebook(char* pKeyData, CSpmBlockCipher64::BLOCK_MODE eBlockMode);
 void ParsePassword(__inout_z const char* pszPassword, __in size_t cbBin, __out_bcount(cbBin) unsigned char** ppBin);
 void HexToBin(__inout_z char* pszHex, __in size_t cchBin, __out_ecount(cchBin) unsigned char* pBin);
 void PrintBin(__in_ecount(cBin) unsigned char* pBin, __in size_t cBin);
-
+HRESULT MakeKey(    BYTE* pbKey,    size_t           cbKey);
 #ifdef _DEBUG
 
 int UnitTests::s_CompareBytes(__in_ecount(cBin) unsigned char* pBin1, __in_ecount(cBin) unsigned char* pBin2, __in size_t cBin)
@@ -60,8 +59,8 @@ void UnitTests::s_PermutationEncryptTest()
     nMatchCount = s_CompareBytes(pTestData, pBuffer, k_cSpmBlockSizeBytes * 2);
     ASSERT(nMatchCount < 8);
 
-    ASSERT(pBuffer[0] == 0xe2);
-    ASSERT(pBuffer[k_cSpmBlockSizeBytes * 2 - 1] == 0xeb);
+    ASSERT(pBuffer[0] == 0x10);
+    ASSERT(pBuffer[k_cSpmBlockSizeBytes * 2 - 1] == 0xe5);
 
     fbcDecrypt.Decrypt(pBuffer, k_cSpmBlockSizeBytes * 2);
     nMatchCount = s_CompareBytes(pTestData, pBuffer, k_cSpmBlockSizeBytes * 2);
@@ -130,9 +129,150 @@ void UnitTests::s_NonceTest()
     printf("Encrypted Nonce:\n");
     PrintBin(rgTemp, OneWayHash.s_GetKeyWidth());
     printf("\n");
-    ASSERT(rgTemp[0] == 0x08);
-    ASSERT(rgTemp[OneWayHash.s_GetKeyWidth()-1] == 0xF3);
-    
+    ASSERT(rgTemp[0] == 0xFD);
+    ASSERT(rgTemp[FBC_CRYPT::s_GetKeyWidth()-1] == 0xD3);
 }
 
+// test if a single bit is changed in the input all output bits change with equal likelihood.
+void UnitTests::s_SingleBitFlipTest()
+{
+    unsigned char rgKey[4 * sizeof(SPM_WORD)] = { 0 };
+    char pDataHex[257] = "0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C0F1E2D3C";
+    FBC_CRYPT encryptor1;
+    FBC_CRYPT encryptor2;
+    unsigned char rgCipherText1[k_cSpmBlockSizeBytes] = { 0 };
+    unsigned char rgCipherText2[k_cSpmBlockSizeBytes] = { 0 };
+    unsigned char rgData1[k_cSpmBlockSizeBytes] = { 0 };
+    unsigned char rgData2[k_cSpmBlockSizeBytes] = { 0 };
+    int matchCount = 0;
+    int i = 0;
+
+    ASSERT(FBC_CRYPT::s_rgCodebook[0] == 0xbe7d);
+    ASSERT(FBC_CRYPT::s_rgCodebook[0xffff] == 0x655c);
+    ASSERT(FBC_CRYPT::s_prgPermutationCodebook != NULL);
+    ASSERT(FBC_CRYPT::s_prgPermutationCodebook[0] == 0x23);
+    ASSERT(FBC_CRYPT::s_prgPermutationCodebook[k_cSpmBlockSizeBytes - 1] == 0x2f);
+
+    ::HexToBin(pDataHex, ARRAYSIZE(rgData1), rgData1);
+    ::memcpy(rgData2, rgData1, ARRAYSIZE(rgData1));
+    rgData2[0] ^= 0x80; // flip 1 bit in rgData2
+
+    for (i = 0; 32 > i; ++i)
+    {
+        MakeKey(rgKey, ARRAYSIZE(rgKey));
+        printf("Key: ");
+        PrintBin(rgKey, ARRAYSIZE(rgKey));
+        printf("\n");
+        ASSERT(FBC_CRYPT::s_ValidKey(rgKey, ARRAYSIZE(rgKey)));
+
+        encryptor1.SetKeys(rgKey, ARRAYSIZE(rgKey));
+        encryptor2.SetKeys(rgKey, ARRAYSIZE(rgKey));
+
+        printf("Testing block 1\n");
+        ::memcpy(rgCipherText1, rgData1, ARRAYSIZE(rgData1));
+        encryptor1.Encrypt(rgCipherText1, ARRAYSIZE(rgCipherText1));
+        encryptor1.SetKeys(rgKey, ARRAYSIZE(rgKey));
+
+        // now flip 1 bit
+
+        printf("Testing block 2\n");
+        ::memcpy(rgCipherText2, rgData2, ARRAYSIZE(rgData2));
+        encryptor2.Encrypt(rgCipherText2, ARRAYSIZE(rgCipherText2));
+
+        printf("Block 1 encrypted: ");
+        PrintBin(rgCipherText1, ARRAYSIZE(rgCipherText1));
+        printf("\n");
+
+        printf("Block 2 encrypted: ");
+        PrintBin(rgCipherText2, ARRAYSIZE(rgCipherText2));
+        printf("\n");
+
+        matchCount = s_CompareBytes(rgCipherText1, rgCipherText2, ARRAYSIZE(rgCipherText2));
+        printf("matchCount = %i\n", matchCount);
+        ASSERT(matchCount < 6);
+    }
+}
+
+void UnitTests::s_TestPerfVsAes()
+{
+    BOOL            fSuccess = FALSE;
+    HCRYPTPROV      hCryptProv = NULL;
+    HCRYPTKEY       hKey = NULL;
+    clock_t         nStart;
+    clock_t         nFinish;
+    clock_t         nAesTimeMs = 0;
+    clock_t         nSpmTimeMs = 0;
+    DWORD           cbData = k_cSpmBlockSizeBytes * 0x10000;
+    unsigned char*  prgData = new unsigned char[k_cSpmBlockSizeBytes * 0x10001];
+
+    unsigned char* pKey = new unsigned char[FBC_CRYPT::s_GetKeyWidth()];
+    int nRetVal = 0;
+    int nMatchCount = 0;
+    char pPassword[16] = "P@s$w0rd!";
+    FBC_CRYPT fbcEncrypt;
+
+    ::ParsePassword(pPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
+    ASSERT(FBC_CRYPT::s_ValidKey(pKey, FBC_CRYPT::s_GetKeyWidth()));
+
+    MakeKey(prgData, cbData);
+
+// the perf test doesnt work when DIAGNOSTIC_OUTPUT is turned on
+#if DIAGNOSTIC_OUTPUT == 0
+    fbcEncrypt.SetKeys(pKey, FBC_CRYPT::s_GetKeyWidth());
+    nStart = clock();
+    fbcEncrypt.Encrypt(prgData, cbData);
+    nFinish = clock();
+    nSpmTimeMs = nFinish - nStart;
+#endif //DIAGNOSTIC_OUTPUT == 0
+
+
+    // acquire provider context
+    fSuccess = CryptAcquireContext(&hCryptProv, 
+        NULL, 
+        NULL, 
+        PROV_RSA_AES,
+        CRYPT_SILENT | CRYPT_VERIFYCONTEXT);
+    ASSERT(fSuccess);
+    if (fSuccess)
+    {
+        // generate random bytes
+        fSuccess = CryptGenKey(
+            hCryptProv,
+            CALG_AES_256,
+            0, 
+            &hKey);
+        ASSERT(fSuccess);
+        if (fSuccess)
+        {
+            nStart = clock();
+            fSuccess = CryptEncrypt(hKey,
+                NULL,  // hHash = no hash
+                true,  // Final
+                0,     // dwFlags
+                prgData,
+                &cbData,
+                k_cSpmBlockSizeBytes * 0x10001);
+            ASSERT(fSuccess);
+            nFinish = clock();
+            nAesTimeMs = (nFinish - nStart);
+        }
+    }
+
+    printf("SPM: %i\nAES: %i\n", nSpmTimeMs, nAesTimeMs);
+
+    if (hKey != NULL)
+    {
+        CryptDestroyKey(hKey);
+    }
+
+    // release context
+    if (hCryptProv != NULL)
+    {
+        CryptReleaseContext(hCryptProv, 0);
+    }
+
+
+}
 #endif //_DEBUG
+
+

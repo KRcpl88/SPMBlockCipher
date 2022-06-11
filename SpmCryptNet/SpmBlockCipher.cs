@@ -13,7 +13,7 @@ namespace Spm
     {
         public const uint BlockSizeWords = 16;
         public const uint BlockSizeBytes = BlockSizeWords * sizeof(SPM_WORD);
-        public const uint BlockInflextionIndex = BlockSizeBytes - sizeof(SPM_SBOX_WORD) + 1; // reverse point for encrypting block
+        public const uint BlockInflectionIndex = BlockSizeBytes - sizeof(SPM_SBOX_WORD) + 1; // reverse point for encrypting block
         public const uint BlockSizeBits = BlockSizeBytes * 8;
 
         public const uint SpmWordWidthBits = 8 * sizeof(SPM_WORD);
@@ -277,7 +277,7 @@ namespace Spm
 #endif // _DEBUG
         }
 
-        public byte[] ShuffleBlockPermutation()
+        public byte[] ShuffleBlockPermutation(int j = 0, SPM_SBOX_WORD[,] blockPermutationEntropy = null)
         {
             SPM_SBOX_WORD rand;
             SPM_SBOX_WORD temp;
@@ -290,13 +290,21 @@ namespace Spm
             {
                 // remember the current value for this entry
                 temp = blockPermutation[i];
-                rand = (SPM_SBOX_WORD)(_sboxPrng.Rand() % (blockPermutation.Length));
+                rand = ((blockPermutationEntropy == null) ? 
+                    (SPM_SBOX_WORD)(_sboxPrng.Rand() % (blockPermutation.Length)) :
+                    blockPermutationEntropy[j,i]);
 
                 // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
                 blockPermutation[i] = blockPermutation[rand];
                 blockPermutation[rand] = (byte)temp;
+#if DEBUG
+                Console.Write("{0} <-> {1} ({2:X2} <-> {2:X2}), ", i, rand, blockPermutation[i], blockPermutation[rand]);
+#endif
             }
 
+#if DEBUG
+            Console.WriteLine();
+#endif
             return blockPermutation;
         }
 
@@ -338,7 +346,7 @@ namespace Spm
 
         public void Encrypt(byte[] data)
         {
-            int i, j;
+            int i, j, k;
             SPM_SBOX_WORD mask = 0;
             SPM_SBOX_WORD temp = 0;
             byte[] blockPermutation;
@@ -353,67 +361,73 @@ namespace Spm
                 Console.WriteLine("Encrypting block {0}", i / BlockSizeBytes);
 #endif
 
-                for (j = 0; j < BlockInflextionIndex; ++j)
+                for (j = 0; 3 > j; ++j)
                 {
 #if DEBUG
-                    Console.Write(" {1}: raw {2:X4}", i, j, BitConverter.ToUInt16(data, i + j) );
+                    Console.WriteLine("Round {0}", j);
+#endif
+                    for (k = 0; k < BlockInflectionIndex; ++k)
+                    {
+#if DEBUG
+                        Console.Write(" {1}: raw {2:X4}", i, k, BitConverter.ToUInt16(data, i + k));
 #endif
 
-                    // apply mask
-                    mask = _maskPrng.Rand();
-                    temp = BitConverter.ToUInt16(data, i + j);
-                    temp ^= mask;
+                        // apply mask
+                        mask = _maskPrng.Rand();
+                        temp = BitConverter.ToUInt16(data, i + k);
+                        temp ^= mask;
 #if DEBUG
-                    Console.Write(" mask {0:X4} ({1:X4})", temp, mask);
+                        Console.Write(" mask {0:X4} ({1:X4})", temp, mask);
 #endif
-                    // apply substitution
-                    temp = _sbox[temp];
-                    BitConverter.GetBytes(temp).CopyTo(data, i + j);
+                        // apply substitution
+                        temp = _sbox[temp];
+                        BitConverter.GetBytes(temp).CopyTo(data, i + k);
 
 #if DEBUG
-                    Console.WriteLine(" sub {0:X4}", temp);
+                        Console.WriteLine(" sub {0:X4}", temp);
 #endif
+                    }
+
+                    // now reverse
+                    for (k -= 2; k >= 0; --k)
+                    {
+#if DEBUG
+                        Console.Write(" {0}: raw {1:X4}", k, BitConverter.ToUInt16(data, i + k));
+#endif
+
+                        // apply mask
+                        mask = _maskPrng.Rand();
+                        temp = BitConverter.ToUInt16(data, i + k);
+                        temp ^= mask;
+#if DEBUG
+                        Console.Write(" mask {0:X4} ({1:X4})", temp, mask);
+#endif
+
+                        // apply substitution
+                        temp = _sbox[temp];
+                        BitConverter.GetBytes(temp).CopyTo(data, i + k);
+#if DEBUG
+                        Console.WriteLine(" sub {0:X4}", temp);
+#endif
+                    }
+
+                    // check for BLOCK_MODE::Permutation
+                    if (s_blockMode == BLOCK_MODE.NoPermutation)
+                    {
+                        continue;
+                    }
+
+                    // permute output
+                    blockPermutation = ShuffleBlockPermutation();
+                    for (k = 0; BlockSizeBytes > k; ++k)
+                    {
+                        permutationBuffer[blockPermutation[k]] = data[i + k];
+#if DEBUG
+                        Console.WriteLine(" map {0} -> {1} raw {2:X2}", k, blockPermutation[k], data[i + k]);
+#endif
+                    }
+                    permutationBuffer.CopyTo(data, i);
                 }
-
-                // now reverse
-                for (j -= 2; j >= 0; --j)
-                {
-#if DEBUG
-                    Console.Write(" {0}: raw {1:X4}", j, BitConverter.ToUInt16(data, i + j));
-#endif
-
-                    // apply mask
-                    mask = _maskPrng.Rand();
-                    temp = BitConverter.ToUInt16(data, i + j);
-                    temp ^= mask;
-#if DEBUG
-                    Console.Write(" mask {0:X4} ({1:X4})", temp, mask);
-#endif
-
-                    // apply substitution
-                    temp = _sbox[temp];
-                    BitConverter.GetBytes(temp).CopyTo(data, i + j);
-#if DEBUG
-                    Console.WriteLine(" sub {0:X4}", temp);
-#endif
-                }
-
-                // check for BLOCK_MODE::Permutation
-                if (s_blockMode == BLOCK_MODE.NoPermutation)
-                {
-                    continue;
-                }
-
-                // permute output
-                blockPermutation = ShuffleBlockPermutation();
-                for (j = 0; BlockSizeBytes > j; ++j)
-                {
-                    permutationBuffer[blockPermutation[j]] = data[i+j];
-#if DEBUG
-                    Console.WriteLine(" map {0} -> {1} raw {2:X2}", j, blockPermutation[j], data[i + j]);
-#endif
-                }
-                permutationBuffer.CopyTo(data, i);
 #if DEBUG
                 Console.Write(" Encrypted data: ");
                 foreach (byte c in permutationBuffer)
@@ -427,8 +441,9 @@ namespace Spm
 
         public void Decrypt(byte [] data)
         {
-            int i, j, k;
-            var mask = new SPM_SBOX_WORD[2 * BlockInflextionIndex - 1];
+            int i, j, k, l;
+            var mask = new SPM_SBOX_WORD[6 * BlockInflectionIndex - 3];
+            var blockPermutationEntropy = new SPM_SBOX_WORD[3, BlockSizeBytes];
             SPM_SBOX_WORD temp = 0;
             var permutationBuffer = new byte[BlockSizeBytes];
             byte[] reverseBlockPermutation;
@@ -440,80 +455,99 @@ namespace Spm
 #if DEBUG
                 Console.WriteLine("Decrypting block {0}", i / BlockSizeBytes);
 #endif
-                // fill rgMask 
-                for (k = 0; k < mask.Length; ++k)
+                l = 0;
+                for (j = 0; 3 > j; ++j)
                 {
-                    mask[k] = _maskPrng.Rand();
+                    // fill rgMask 
+                    for (k = 0; k < (2 * BlockInflectionIndex - 1); ++k)
+                    {
+                        mask[l] = _maskPrng.Rand();
+                        ++l;
+                    }
+
+                    if (s_blockMode == BLOCK_MODE.Permutation)
+                    {
+                        for (k = 0; k < BlockSizeBytes; ++k)
+                        {
+                            blockPermutationEntropy[j,k] = (SPM_SBOX_WORD)(_sboxPrng.Rand() % BlockSizeBytes);
+                        }
+                    }
                 }
 
-                if (s_blockMode == BLOCK_MODE.Permutation)
+                for (j = 2; 0 <= j; --j)
                 {
-                    reverseBlockPermutation = ReverseBlockPermutation(ShuffleBlockPermutation());
-                    Debug.Assert(reverseBlockPermutation.Length == BlockSizeBytes);
-                    // reverse permutation on input
-                    for (j = 0; BlockSizeBytes > j; ++j)
-                    {
-                        permutationBuffer[reverseBlockPermutation[j]] = data[i+j];
 #if DEBUG
-                        Console.WriteLine(" map {0} -> {1} raw {2:X2}", j, reverseBlockPermutation[j], data[i + j]);
+                    Console.WriteLine("Round {0}", j);
+#endif
+                    if (s_blockMode == BLOCK_MODE.Permutation)
+                    {
+                        reverseBlockPermutation = ReverseBlockPermutation(ShuffleBlockPermutation(j, blockPermutationEntropy));
+                        Debug.Assert(reverseBlockPermutation.Length == BlockSizeBytes);
+                        // reverse permutation on input
+                        for (k = 0; BlockSizeBytes > k; ++k)
+                        {
+                            permutationBuffer[reverseBlockPermutation[k]] = data[i + k];
+#if DEBUG
+                            Console.WriteLine(" map {0} -> {1} raw {2:X2}", k, reverseBlockPermutation[k], data[i + k]);
+#endif
+                        }
+                        permutationBuffer.CopyTo(data, i);
+
+#if DEBUG
+                        Console.Write(" Unscrambled data: ");
+                        foreach (byte c in permutationBuffer)
+                        {
+                            Console.Write("{0:X2}", c);
+                        }
+                        Console.WriteLine();
 #endif
                     }
-                    permutationBuffer.CopyTo(data, i);
 
-#if DEBUG
-                    Console.Write(" Unscrambled data: ");
-                    foreach (byte c in permutationBuffer)
+                    for (k = 0; k < BlockInflectionIndex; ++k)
                     {
-                        Console.Write("{0:X2}", c);
+                        Debug.Assert(l != 0);
+                        --l;
+#if DEBUG
+                        Console.Write(" {0}: raw {1:X4}", k, BitConverter.ToUInt16(data, i + k));
+#endif
+
+                        // reverse substitution
+                        temp = _reverseSbox[BitConverter.ToUInt16(data, i + k)];
+#if DEBUG
+                        Console.Write(" sub {0:X4}", temp);
+#endif
+
+                        // reverse mask
+                        temp ^= mask[l];
+                        BitConverter.GetBytes(temp).CopyTo(data, i + k);
+#if DEBUG
+                        Console.WriteLine(" mask {0:X4} ({1:X4})", temp, mask[l]);
+#endif
                     }
-                    Console.WriteLine();
-#endif
-                }
 
-                for (j = 0; j < BlockInflextionIndex; ++j)
-                {
-                    Debug.Assert(k != 0);
-                    --k;
+                    // now reverse
+                    for (k -= 2; k >= 0; --k)
+                    {
+                        Debug.Assert(l != 0);
+                        --l;
+                        // reverse substitution
 #if DEBUG
-                    Console.Write(" {0}: raw {1:X4}", j, BitConverter.ToUInt16(data, i + j));
+                        Console.Write(" {0}: raw {1:X4}", k, BitConverter.ToUInt16(data, i + k));
 #endif
-
-                    // reverse substitution
-                    temp = _reverseSbox[BitConverter.ToUInt16(data, i + j)];
-#if DEBUG
-                    Console.Write(" sub {0:X4}", temp);
-#endif
-
-                    // reverse mask
-                    temp ^= mask[k];
-                    BitConverter.GetBytes(temp).CopyTo(data, i + j);
-#if DEBUG
-                    Console.WriteLine(" mask {0:X4} ({1:X4})", temp, mask[k]);
-#endif
-                }
-
-                // now reverse
-                for (j -= 2; j >= 0; --j)
-                {
-                    Debug.Assert(k != 0);
-                    --k;
-                    // reverse substitution
-#if DEBUG
-                    Console.Write(" {0}: raw {1:X4}", j, BitConverter.ToUInt16(data, i + j));
-#endif
-                    temp = _reverseSbox[BitConverter.ToUInt16(data, i + j)];
+                        temp = _reverseSbox[BitConverter.ToUInt16(data, i + k)];
 
 #if DEBUG
-                    Console.Write(" sub {0:X4}", temp);
+                        Console.Write(" sub {0:X4}", temp);
 #endif
 
-                    // reverse mask
-                    temp ^= mask[k];
-                    BitConverter.GetBytes(temp).CopyTo(data, i + j);
+                        // reverse mask
+                        temp ^= mask[l];
+                        BitConverter.GetBytes(temp).CopyTo(data, i + k);
 
 #if DEBUG
-                    Console.WriteLine(" mask {0:X4} ({1:X4})", temp, mask[k]);
+                        Console.WriteLine(" mask {0:X4} ({1:X4})", temp, mask[l]);
 #endif
+                    }
                 }
             }
         }
