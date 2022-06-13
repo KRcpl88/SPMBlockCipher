@@ -233,7 +233,7 @@ void CSpmBlockCipher64::PermuteSbox()
 #endif // _DEBUG
 }
 
-void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation, __in_ecount_opt(k_cSpmBlockSizeBytes) SPM_SBOX_WORD* prgBlockPermutationEntropy)
+void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation)
 {
     size_t i;
     SPM_SBOX_WORD nTemp;
@@ -244,7 +244,7 @@ void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeByte
     {
         // remember the current value for this entry
         nTemp = rgBlockPermutation[i];
-        nRand = (prgBlockPermutationEntropy ? prgBlockPermutationEntropy[i] : (m_prngSBox.Rand() % k_cSpmBlockSizeBytes)) ;
+        nRand = m_prngSBox.Rand() % k_cSpmBlockSizeBytes;
 
         // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
         rgBlockPermutation[i] = rgBlockPermutation[nRand];
@@ -308,6 +308,12 @@ void CSpmBlockCipher64::Encrypt(__in_bcount(cbData) unsigned char * pData, size_
 
     for (i = 0; i < cbData; i += k_cSpmBlockSizeBytes)
     {
+        if (s_eBlockMode == BLOCK_MODE::Permutation)
+        {
+            // prepare rgBlockPermutation
+            ShuffleBlockPermutation(rgBlockPermutation);
+        }
+
         for (j = 0; 3 > j; ++j)
         {
 #if DIAGNOSTIC_OUTPUT ==1
@@ -363,7 +369,6 @@ void CSpmBlockCipher64::Encrypt(__in_bcount(cbData) unsigned char * pData, size_
             }
 
             // permute output
-            ShuffleBlockPermutation(rgBlockPermutation);
             for (k = 0; k_cSpmBlockSizeBytes > k; ++k)
             {
                 rgPermutationBuffer[rgBlockPermutation[k]] = pBlock[k];
@@ -382,7 +387,6 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
     size_t i,j,k,l;
     unsigned char *pBlock = NULL;
     SPM_SBOX_WORD rgMask[6 * k_cSpmBlockInflectionIndex-3] = {0};
-    SPM_SBOX_WORD rgBlockPermutationEntropy[3][k_cSpmBlockSizeBytes] = { 0 };
     unsigned char rgPermutationBuffer[k_cSpmBlockSizeBytes] = { 0 };
     unsigned char rgBlockPermutation[k_cSpmBlockSizeBytes] = { 0 };
     unsigned char rgReverseBlockPermutation[k_cSpmBlockSizeBytes] = { 0 };
@@ -393,6 +397,13 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
     C_ASSERT ((((size_t)0)-1) > 0);
     for (i=0; i < cbData; i += k_cSpmBlockSizeBytes)
     {
+        if (s_eBlockMode == BLOCK_MODE::Permutation)
+        {
+            // prepare rgBlockPermutation
+            ShuffleBlockPermutation(rgBlockPermutation);
+            ReverseBlockPermutation(rgBlockPermutation, rgReverseBlockPermutation);
+        }
+
         // fill rgMask and rgBlockPermutationEntropy
         l = 0;
         for (j = 0; 3 > j; ++j)
@@ -401,14 +412,6 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
             {
                 rgMask[l] = m_prngMask.Rand();
                 ++l;
-            }
-
-            if (s_eBlockMode == BLOCK_MODE::Permutation)
-            {
-                for (k = 0; k < k_cSpmBlockSizeBytes; ++k)
-                {
-                    rgBlockPermutationEntropy[j][k] = (m_prngSBox.Rand() % k_cSpmBlockSizeBytes);
-                }
             }
         }
 
@@ -421,9 +424,6 @@ void CSpmBlockCipher64::Decrypt(__in_bcount(cbData) unsigned char * pData, size_
             pBlock = pData + i;
             if (s_eBlockMode == BLOCK_MODE::Permutation)
             {
-                ShuffleBlockPermutation(rgBlockPermutation, rgBlockPermutationEntropy[j]);
-                ReverseBlockPermutation(rgBlockPermutation, rgReverseBlockPermutation);
-
                 // reverse permutation on input
                 for (k = 0; k_cSpmBlockSizeBytes > k; ++k)
                 {

@@ -508,7 +508,7 @@ namespace Spm
             }
         }
 
-        public byte[] ShuffleBlockPermutation(int j = 0, SPM_SBOX_WORD[,] blockPermutationEntropy = null)
+        public byte[] ShuffleBlockPermutation()
         {
             SPM_SBOX_WORD rand;
             SPM_SBOX_WORD temp;
@@ -521,9 +521,7 @@ namespace Spm
             {
                 // remember the current value for this entry
                 temp = blockPermutation[i];
-                rand = ((blockPermutationEntropy == null) ? 
-                    (SPM_SBOX_WORD)(_sboxPrng.Rand() % (blockPermutation.Length)) :
-                    blockPermutationEntropy[j,i]);
+                rand = (SPM_SBOX_WORD)(_sboxPrng.Rand() % (blockPermutation.Length));
 
                 // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
                 blockPermutation[i] = blockPermutation[rand];
@@ -574,7 +572,7 @@ namespace Spm
             int i, j, k;
             SPM_SBOX_WORD mask = 0;
             SPM_SBOX_WORD temp = 0;
-            byte[] blockPermutation;
+            byte[] blockPermutation = null;
             var permutationBuffer = new byte[BlockSizeBytes];
 
 
@@ -582,6 +580,12 @@ namespace Spm
 
             for (i = 0; i < data.Length; i += (int)BlockSizeBytes)
             {
+                // check for BLOCK_MODE::Permutation
+                if (s_blockMode == BLOCK_MODE.Permutation)
+                {
+                    blockPermutation = ShuffleBlockPermutation();
+                }
+
                 for (j = 0; 3 > j; ++j)
                 {
                     for (k = 0; k < BlockInflectionIndex; ++k)
@@ -617,7 +621,6 @@ namespace Spm
                     }
 
                     // permute output
-                    blockPermutation = ShuffleBlockPermutation();
                     for (k = 0; BlockSizeBytes > k; ++k)
                     {
                         permutationBuffer[blockPermutation[k]] = data[i + k];
@@ -631,15 +634,20 @@ namespace Spm
         {
             int i, j, k, l;
             var mask = new SPM_SBOX_WORD[6 * BlockInflectionIndex - 3];
-            var blockPermutationEntropy = new SPM_SBOX_WORD[3, BlockSizeBytes];
             SPM_SBOX_WORD temp = 0;
             var permutationBuffer = new byte[BlockSizeBytes];
-            byte[] reverseBlockPermutation;
+            byte[] reverseBlockPermutation = null;
 
             Debug.Assert((data.Length % BlockSizeBytes) == 0);
 
             for (i = 0; i < data.Length; i += (int)BlockSizeBytes)
             {
+                // check for BLOCK_MODE::Permutation
+                if (s_blockMode == BLOCK_MODE.Permutation)
+                {
+                    reverseBlockPermutation = ReverseBlockPermutation(ShuffleBlockPermutation());
+                }
+
                 l = 0;
                 for (j = 0; 3 > j; ++j)
                 {
@@ -649,21 +657,12 @@ namespace Spm
                         mask[l] = _maskPrng.Rand();
                         ++l;
                     }
-
-                    if (s_blockMode == BLOCK_MODE.Permutation)
-                    {
-                        for (k = 0; k < BlockSizeBytes; ++k)
-                        {
-                            blockPermutationEntropy[j,k] = (SPM_SBOX_WORD)(_sboxPrng.Rand() % BlockSizeBytes);
-                        }
-                    }
                 }
 
                 for (j = 2; 0 <= j; --j)
                 {
                     if (s_blockMode == BLOCK_MODE.Permutation)
                     {
-                        reverseBlockPermutation = ReverseBlockPermutation(ShuffleBlockPermutation(j, blockPermutationEntropy));
                         Debug.Assert(reverseBlockPermutation.Length == BlockSizeBytes);
                         // reverse permutation on input
                         for (k = 0; BlockSizeBytes > k; ++k)
