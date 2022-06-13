@@ -1,9 +1,9 @@
 ﻿using System;
-
+using System.Diagnostics;
 
 using SPM_WORD = System.UInt64;
 using SPM_SBOX_WORD = System.UInt16;
-using System.Diagnostics;
+
 
 namespace Spm
 {
