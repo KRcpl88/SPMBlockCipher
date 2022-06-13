@@ -109,9 +109,11 @@ namespace Spm
             cryptor.SetKeys(encryptedNonce);
         }
 
-        public static byte[] GenNonceFromInput()
+        public static byte[] GenNonceFromInput(byte[] hashKey = null)
         {
-            var nonce = new byte[SpmBlockCipher.GetKeyWidth()];
+            var oneWayHash = new SpmBlockCipher();
+            var nonce = new byte[SpmBlockCipher.BlockSizeBytes];
+            var buf = new byte[SpmBlockCipher.BlockSizeBytes];
 
             var timer = new Stopwatch();
             int i = sizeof(long);
@@ -128,6 +130,22 @@ namespace Spm
             timer.Stop();
 
             BitConverter.GetBytes(timer.ElapsedTicks).CopyTo(nonce, 0);
+            PrintBin(nonce);
+            Console.WriteLine("");
+
+            nonce.CopyTo(buf, 0);
+
+            // apply one way hash to the noce so we dont leak info in the nonce
+            if (hashKey == null)
+            {
+                hashKey = HexToBin("3BCC8CBF2103DDC295E70BCC305C6BB232479DD2792204A2CA83CE3BEFF9EA43");
+            }
+            oneWayHash.SetKeys(hashKey);
+            oneWayHash.Encrypt(buf);
+            Array.Copy(buf, nonce, nonce.Length / 2);
+            oneWayHash.Encrypt(buf);
+            Array.Copy(buf, 0, nonce, nonce.Length / 2, nonce.Length / 2);
+
             PrintBin(nonce);
             Console.WriteLine("");
 
