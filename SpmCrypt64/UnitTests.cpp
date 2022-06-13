@@ -59,8 +59,8 @@ void UnitTests::s_PermutationEncryptTest()
     nMatchCount = s_CompareBytes(pTestData, pBuffer, k_cSpmBlockSizeBytes * 2);
     ASSERT(nMatchCount < 8);
 
-    ASSERT(pBuffer[0] == 0x10);
-    ASSERT(pBuffer[k_cSpmBlockSizeBytes * 2 - 1] == 0xe5);
+    ASSERT(pBuffer[0] == 0x8b);
+    ASSERT(pBuffer[k_cSpmBlockSizeBytes * 2 - 1] == 0xdb);
 
     fbcDecrypt.Decrypt(pBuffer, k_cSpmBlockSizeBytes * 2);
     nMatchCount = s_CompareBytes(pTestData, pBuffer, k_cSpmBlockSizeBytes * 2);
@@ -129,8 +129,8 @@ void UnitTests::s_NonceTest()
     printf("Encrypted Nonce:\n");
     PrintBin(rgTemp, OneWayHash.s_GetKeyWidth());
     printf("\n");
-    ASSERT(rgTemp[0] == 0xFD);
-    ASSERT(rgTemp[FBC_CRYPT::s_GetKeyWidth()-1] == 0xD3);
+    ASSERT(rgTemp[0] == 0xf2);
+    ASSERT(rgTemp[FBC_CRYPT::s_GetKeyWidth()-1] == 0xa9);
 }
 
 // test if a single bit is changed in the input all output bits change with equal likelihood.

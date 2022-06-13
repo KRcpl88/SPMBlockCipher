@@ -32,7 +32,7 @@ namespace Spm.Tests
             encryptor.SetKeys(key);
             decryptor.SetKeys(key);
 
-            TestEncryption(encryptor, decryptor, 0x10, 0xe5);
+            TestEncryption(encryptor, decryptor, 0x8b, 0xdb);
         }
 
         private static void TestEncryption(SpmBlockCipher encryptor, SpmBlockCipher decryptor, byte firstByte, byte lastByte)
@@ -76,7 +76,7 @@ namespace Spm.Tests
             Util.ApplyNonce(nonce, key, encryptor);
             Util.ApplyNonce(nonce, key, decryptor);
 
-            TestEncryption(encryptor, decryptor, 0x4f, 0x4a);
+            TestEncryption(encryptor, decryptor, 0xe0, 0xfa);
         }
 
         private static int CompareBytes(byte[] pTestData, byte[] pBuffer)

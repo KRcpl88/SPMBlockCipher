@@ -87,7 +87,7 @@ protected:
 
     void PermuteSbox();
 
-    void ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation, __in_ecount_opt(k_cSpmBlockSizeBytes) SPM_SBOX_WORD* prgBlockPermutationEntropy = NULL);
+    void ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation);
     void ReverseBlockPermutation(__in_ecount(k_cSpmBlockSizeBytes) const unsigned char* rgBlockPermutation, __out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgReverseBlockPermutation);
 
 public:
