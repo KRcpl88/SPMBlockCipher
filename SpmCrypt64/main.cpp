@@ -402,7 +402,7 @@ int FbcEncryptFile(const char * pPlaintext, const char * pCiphertext, const unsi
     HANDLE hFileIn = NULL;
     HANDLE hFileOut = NULL;
     BOOL fOK = FALSE;
-    size_t cNonce = 0;
+    size_t cNonce = k_cSpmBlockSizeBytes;
     unsigned char * pNonce = NULL;
     DWORD dwBytes = 0;
     ULONGLONG cbFileSize = 0;
@@ -432,7 +432,6 @@ int FbcEncryptFile(const char * pPlaintext, const char * pCiphertext, const unsi
         return -5;
     }
 
-    cNonce = FBC_CRYPT::s_GetKeyWidth();
     pNonce = new unsigned char [cNonce];
 
     if (FAILED(MakeKey(pNonce, cNonce)))
@@ -471,7 +470,7 @@ int FbcDecryptFile(const char * pCiphertext, const char * pPlaintext, const unsi
     HANDLE hFileIn = NULL;
     HANDLE hFileOut = NULL;
     BOOL fOK = FALSE;
-    size_t cNonce = 0;
+    size_t cNonce = k_cSpmBlockSizeBytes;
     unsigned char * pNonce = NULL;
     DWORD dwBytes = 0;
     ULONGLONG cbFileSize = 0;
@@ -495,7 +494,6 @@ int FbcDecryptFile(const char * pCiphertext, const char * pPlaintext, const unsi
     }
 
     // read nonce from input file
-    cNonce = FBC_CRYPT::s_GetKeyWidth();
     pNonce = new unsigned char [cNonce];
 
     fOK = ::ReadFile(hFileIn, pNonce, static_cast<DWORD>(cNonce * sizeof (*pNonce)), &dwBytes, NULL);
@@ -709,7 +707,7 @@ int _tmain(int argc, _TCHAR* argv[])
         return -1;
     }
 
-    printf("\nSubstitutionPermutationMask cipher 64 bit version 2.0.20220607\n");
+    printf("\nSubstitutionPermutationMask cipher 64 bit version 2.0.20220613\n");
 
     if (((*(argv[1])) == 'L') || ((*(argv[1])) == 'l'))
     {
