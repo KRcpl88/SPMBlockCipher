@@ -416,5 +416,46 @@ namespace Spm.Tests
             Assert.IsTrue(data.SequenceEqual(original),
                 "Applying s_EncryptBlock twice with the same key should restore the original data.");
         }
+
+        // ──────────────────────────────────────────────────────────────────────────
+        // s_DecryptBlock
+        // ──────────────────────────────────────────────────────────────────────────
+
+        [TestMethod()]
+        public void DecryptBlock_NoPermutation_TransformsData()
+        {
+            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
+            var original = MakeTestBlock();
+            var data = (byte[])original.Clone();
+            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
+
+            // Pass null reverseBlockPermutation to indicate no permutation mode.
+            SpmBlockCipher.s_DecryptBlock(data, 0, BuildIdentitySbox(), BuildPrng(), null, buffer);
+
+            Assert.IsFalse(data.SequenceEqual(original),
+                "s_DecryptBlock should change the data.");
+        }
+
+        [TestMethod()]
+        public void DecryptBlock_UndoesEncryptBlock_NoPermutation()
+        {
+            // s_EncryptBlock feeds the PRNG sequentially; s_DecryptBlock must pre-collect
+            // the same masks (in order) then apply the decrypt rounds in reverse.
+            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
+
+            var sbox = BuildIdentitySbox();
+            var original = MakeTestBlock();
+            var data = (byte[])original.Clone();
+            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
+
+            // Encrypt with one PRNG instance.
+            SpmBlockCipher.s_EncryptBlock(data, 0, sbox, BuildPrng(), null, buffer);
+
+            // Decrypt with an independently-seeded but identical PRNG.
+            SpmBlockCipher.s_DecryptBlock(data, 0, sbox, BuildPrng(), null, buffer);
+
+            Assert.IsTrue(data.SequenceEqual(original),
+                "s_DecryptBlock should exactly undo s_EncryptBlock when no permutation is used.");
+        }
     }
 }

@@ -517,6 +517,33 @@ namespace Spm
             s_DecryptReversePass(data, blockOffset, reverseSbox, masks, ref maskIndex);
         }
 
+        public static void s_DecryptBlock(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_PRNG maskPrng, byte[] reverseBlockPermutation, byte[] permutationBuffer)
+        {
+            int maskIndex = 0;
+            var mask = new SPM_SBOX_WORD[6 * BlockInflectionIndex - 3];
+
+            // fill rgMask for all 3 rounds
+            for (int j = 0; 3 > j; ++j)
+            {
+                for (int k = 0; k < (2 * BlockInflectionIndex - 1); ++k)
+                {
+                    mask[maskIndex] = maskPrng.Rand();
+                    ++maskIndex;
+                }
+            }
+
+            // decrypt rounds in reverse order
+            for (int j = 2; 0 <= j; --j)
+            {
+#if DEBUG
+                Console.WriteLine("Round {0}", j);
+#endif
+                // reverseBlockPermutation is null when s_blockMode == BLOCK_MODE.NoPermutation;
+                // s_DecryptRound treats null as a skip-permutation signal.
+                s_DecryptRound(data, blockOffset, reverseSbox, mask, ref maskIndex, reverseBlockPermutation, permutationBuffer);
+            }
+        }
+
         public void Encrypt(byte[] data)
         {
             int i;
@@ -552,8 +579,7 @@ namespace Spm
 
         public void Decrypt(byte[] data)
         {
-            int i, j, l;
-            var mask = new SPM_SBOX_WORD[6 * BlockInflectionIndex - 3];
+            int i;
             var permutationBuffer = new byte[BlockSizeBytes];
             byte[] reverseBlockPermutation = null;
 
@@ -570,26 +596,9 @@ namespace Spm
                     reverseBlockPermutation = ReverseBlockPermutation(ShuffleBlockPermutation());
                 }
 
-                l = 0;
-                for (j = 0; 3 > j; ++j)
-                {
-                    // fill rgMask
-                    for (int k = 0; k < (2 * BlockInflectionIndex - 1); ++k)
-                    {
-                        mask[l] = _maskPrng.Rand();
-                        ++l;
-                    }
-                }
-
-                for (j = 2; 0 <= j; --j)
-                {
-#if DEBUG
-                    Console.WriteLine("Round {0}", j);
-#endif
-                    // reverseBlockPermutation is null when s_blockMode == BLOCK_MODE.NoPermutation;
-                    // s_DecryptRound treats null as a skip-permutation signal.
-                    s_DecryptRound(data, i, _reverseSbox, mask, ref l, reverseBlockPermutation, permutationBuffer);
-                }
+                // reverseBlockPermutation is null when s_blockMode == BLOCK_MODE.NoPermutation;
+                // s_DecryptBlock treats null as a skip-permutation signal.
+                s_DecryptBlock(data, i, _reverseSbox, _maskPrng, reverseBlockPermutation, permutationBuffer);
             }
         }
     }
