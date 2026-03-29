@@ -1,0 +1,65 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-dotnet:
+    name: Build and Test .NET
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '5.0.x'
+
+      - name: Restore dependencies
+        run: |
+          dotnet restore SpmCryptNet/SpmBlockCipherNet.csproj
+          dotnet restore SpmCryptNetTests/SpmBlockCipherNetTests.csproj
+
+      - name: Build
+        run: dotnet build SpmCryptNet/SpmBlockCipherNet.csproj --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test SpmCryptNetTests/SpmBlockCipherNetTests.csproj --configuration Release --no-restore
+
+      - name: Publish win-x64
+        run: >
+          dotnet publish SpmCryptNet/SpmBlockCipherNet.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output publish/dotnet
+
+      - name: Upload .NET artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpmBlockCipher-dotnet-win-x64
+          path: publish/dotnet/
+
+  build-cpp:
+    name: Build C++
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build Release x64
+        working-directory: SpmCrypt64
+        run: msbuild SpmCrypt64.vcxproj /p:Configuration=Release /p:Platform=x64
+
+      - name: Upload C++ artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpmBlockCipher-cpp-win-x64
+          path: SpmCrypt64/x64/Release/SpmBlockCipher64.exe
