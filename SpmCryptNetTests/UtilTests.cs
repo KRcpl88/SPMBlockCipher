@@ -82,7 +82,8 @@ namespace Spm.Tests
             Util.ApplyNonce(nonce, key, encryptor);
             Util.ApplyNonce(nonce, key, decryptor);
 
-            byte[] testData = Util.HexToBin("0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20");
+            byte[] testData = new byte[SpmBlockCipher.BlockSizeBytes];
+            for (int idx = 0; idx < testData.Length; idx++) testData[idx] = (byte)(idx + 1);
             byte[] buf = (byte[])testData.Clone();
 
             encryptor.Encrypt(buf);
@@ -101,7 +102,8 @@ namespace Spm.Tests
             byte[] nonce2 = Util.HexToBin("4cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79");
             byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
 
-            byte[] testData = Util.HexToBin("0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20");
+            byte[] testData = new byte[SpmBlockCipher.BlockSizeBytes];
+            for (int idx = 0; idx < testData.Length; idx++) testData[idx] = (byte)(idx + 1);
 
             var encryptor1 = new SpmBlockCipher();
             Util.ApplyNonce(nonce1, key, encryptor1);

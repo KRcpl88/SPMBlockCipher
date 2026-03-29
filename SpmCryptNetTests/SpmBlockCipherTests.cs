@@ -138,7 +138,7 @@ namespace Spm.Tests
                 Console.WriteLine();
 
                 matchCount = CompareBytes(testData1, testData2);
-                Assert.IsTrue(matchCount < 6, "{0} bytes did not change", matchCount);
+                Assert.IsTrue(matchCount < 6, $"{matchCount} bytes did not change");
             }
         }
     }
