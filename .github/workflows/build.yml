@@ -45,21 +45,3 @@ jobs:
         with:
           name: SpmBlockCipher-dotnet-win-x64
           path: publish/dotnet/
-
-  build-cpp:
-    name: Build C++
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: microsoft/setup-msbuild@v2
-
-      - name: Build Release x64
-        working-directory: SpmCrypt64
-        run: msbuild SpmCrypt64.vcxproj /p:Configuration=Release /p:Platform=x64
-
-      - name: Upload C++ artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SpmBlockCipher-cpp-win-x64
-          path: SpmCrypt64/x64/Release/SpmBlockCipher64.exe

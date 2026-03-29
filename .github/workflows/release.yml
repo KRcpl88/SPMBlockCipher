@@ -29,17 +29,10 @@ jobs:
           name: SpmBlockCipher-dotnet-win-x64
           path: artifacts/dotnet
 
-      - name: Download C++ artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: SpmBlockCipher-cpp-win-x64
-          path: artifacts/cpp
-
       - name: Package artifacts
         run: |
           cd artifacts
           zip -r SpmBlockCipher-dotnet-win-x64.zip dotnet/
-          cp cpp/SpmBlockCipher64.exe SpmBlockCipher64-cpp-win-x64.exe
 
       - name: Create release
         env:
@@ -48,5 +41,4 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "Release ${{ github.ref_name }}" \
             --generate-notes \
-            artifacts/SpmBlockCipher-dotnet-win-x64.zip \
-            artifacts/SpmBlockCipher64-cpp-win-x64.exe
+            artifacts/SpmBlockCipher-dotnet-win-x64.zip
