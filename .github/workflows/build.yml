@@ -38,7 +38,7 @@ jobs:
           --configuration Release
           --runtime win-x64
           --self-contained true
-          --output publish/dotnet
+          -p:PublishDir=publish/dotnet/
 
       - name: Upload .NET artifact
         uses: actions/upload-artifact@v4
