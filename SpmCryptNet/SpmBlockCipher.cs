@@ -59,6 +59,8 @@ namespace Spm
         private static void s_ConstructCodebook(BLOCK_MODE blockMode)
         {
             int i;
+            // reset any previous codebook state before re-initializing
+            Array.Clear(CodeBook, 0, CodeBook.Length);
             // initialize Sbox values to 0, 1, 2, ... N
             for (i = 0; CodeBook.Length > i; ++i)
             {
