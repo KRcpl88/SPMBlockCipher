@@ -344,7 +344,7 @@ namespace Spm
             PermuteSbox();
         }
 
-        public static void EncryptForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
+        public static void s_EncryptForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
         {
             int k;
             SPM_SBOX_WORD mask;
@@ -371,7 +371,7 @@ namespace Spm
             }
         }
 
-        public static void EncryptReversePass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
+        public static void s_EncryptReversePass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
         {
             int k;
             SPM_SBOX_WORD mask;
@@ -399,7 +399,7 @@ namespace Spm
             }
         }
 
-        public static void ApplyPermutation(byte[] data, int blockOffset, byte[] permutation, byte[] buffer)
+        public static void s_ApplyPermutation(byte[] data, int blockOffset, byte[] permutation, byte[] buffer)
         {
             int k;
 
@@ -415,7 +415,7 @@ namespace Spm
             buffer.CopyTo(data, blockOffset);
         }
 
-        public static void DecryptForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex)
+        public static void s_DecryptForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex)
         {
             int k;
             SPM_SBOX_WORD temp;
@@ -441,7 +441,7 @@ namespace Spm
             }
         }
 
-        public static void DecryptReversePass(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex)
+        public static void s_DecryptReversePass(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex)
         {
             int k;
             SPM_SBOX_WORD temp;
@@ -468,6 +468,42 @@ namespace Spm
             }
         }
 
+        public static void s_EncryptRound(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng, byte[] blockPermutation, byte[] permutationBuffer)
+        {
+            s_EncryptForwardPass(data, blockOffset, sbox, maskPrng);
+
+            s_EncryptReversePass(data, blockOffset, sbox, maskPrng);
+
+            if (blockPermutation == null)
+            {
+                return;
+            }
+
+            // permute output
+            s_ApplyPermutation(data, blockOffset, blockPermutation, permutationBuffer);
+        }
+
+        public static void s_DecryptRound(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex, byte[] reverseBlockPermutation, byte[] permutationBuffer)
+        {
+            if (reverseBlockPermutation != null)
+            {
+                // reverse permutation on input
+                s_ApplyPermutation(data, blockOffset, reverseBlockPermutation, permutationBuffer);
+#if DEBUG
+                Console.Write(" Unscrambled data: ");
+                foreach (byte c in permutationBuffer)
+                {
+                    Console.Write("{0:X2}", c);
+                }
+                Console.WriteLine();
+#endif
+            }
+
+            s_DecryptForwardPass(data, blockOffset, reverseSbox, masks, ref maskIndex);
+
+            s_DecryptReversePass(data, blockOffset, reverseSbox, masks, ref maskIndex);
+        }
+
         public void Encrypt(byte[] data)
         {
             int i, j;
@@ -492,18 +528,9 @@ namespace Spm
 #if DEBUG
                     Console.WriteLine("Round {0}", j);
 #endif
-                    EncryptForwardPass(data, i, _sbox, _maskPrng);
-
-                    EncryptReversePass(data, i, _sbox, _maskPrng);
-
-                    // check for BLOCK_MODE::Permutation
-                    if (s_blockMode == BLOCK_MODE.NoPermutation)
-                    {
-                        continue;
-                    }
-
-                    // permute output
-                    ApplyPermutation(data, i, blockPermutation, permutationBuffer);
+                    // blockPermutation is null when s_blockMode == BLOCK_MODE.NoPermutation;
+                    // s_EncryptRound treats null as a skip-permutation signal.
+                    s_EncryptRound(data, i, _sbox, _maskPrng, blockPermutation, permutationBuffer);
                 }
 #if DEBUG
                 Console.Write(" Encrypted data: ");
@@ -552,23 +579,9 @@ namespace Spm
 #if DEBUG
                     Console.WriteLine("Round {0}", j);
 #endif
-                    if (s_blockMode == BLOCK_MODE.Permutation)
-                    {
-                        // reverse permutation on input
-                        ApplyPermutation(data, i, reverseBlockPermutation, permutationBuffer);
-#if DEBUG
-                        Console.Write(" Unscrambled data: ");
-                        foreach (byte c in permutationBuffer)
-                        {
-                            Console.Write("{0:X2}", c);
-                        }
-                        Console.WriteLine();
-#endif
-                    }
-
-                    DecryptForwardPass(data, i, _reverseSbox, mask, ref l);
-
-                    DecryptReversePass(data, i, _reverseSbox, mask, ref l);
+                    // reverseBlockPermutation is null when s_blockMode == BLOCK_MODE.NoPermutation;
+                    // s_DecryptRound treats null as a skip-permutation signal.
+                    s_DecryptRound(data, i, _reverseSbox, mask, ref l, reverseBlockPermutation, permutationBuffer);
                 }
             }
         }
