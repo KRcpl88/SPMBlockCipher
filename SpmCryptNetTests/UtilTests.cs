@@ -2,6 +2,7 @@
 using Spm;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -62,6 +63,109 @@ namespace Spm.Tests
             {
                 Assert.IsTrue(c == 1);
             }
+        }
+
+        [TestMethod()]
+        public void ApplyNonceTest()
+        {
+            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
+
+            byte[] nonce = Util.HexToBin("3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79");
+            Assert.IsTrue(nonce.Length == SpmBlockCipher.GetKeyWidth());
+
+            byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+            Assert.IsTrue(SpmBlockCipher.s_ValidKey(key));
+
+            var encryptor = new SpmBlockCipher();
+            var decryptor = new SpmBlockCipher();
+
+            Util.ApplyNonce(nonce, key, encryptor);
+            Util.ApplyNonce(nonce, key, decryptor);
+
+            byte[] testData = new byte[SpmBlockCipher.BlockSizeBytes];
+            for (int idx = 0; idx < testData.Length; idx++) testData[idx] = (byte)(idx + 1);
+            byte[] buf = (byte[])testData.Clone();
+
+            encryptor.Encrypt(buf);
+            Assert.IsFalse(buf.SequenceEqual(testData));
+
+            decryptor.Decrypt(buf);
+            Assert.IsTrue(buf.SequenceEqual(testData));
+        }
+
+        [TestMethod()]
+        public void ApplyNonce_DifferentNoncesProduceDifferentEncryptionTest()
+        {
+            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
+
+            byte[] nonce1 = Util.HexToBin("3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79");
+            byte[] nonce2 = Util.HexToBin("4cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79");
+            byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+
+            byte[] testData = new byte[SpmBlockCipher.BlockSizeBytes];
+            for (int idx = 0; idx < testData.Length; idx++) testData[idx] = (byte)(idx + 1);
+
+            var encryptor1 = new SpmBlockCipher();
+            Util.ApplyNonce(nonce1, key, encryptor1);
+            byte[] buf1 = (byte[])testData.Clone();
+            encryptor1.Encrypt(buf1);
+
+            var encryptor2 = new SpmBlockCipher();
+            Util.ApplyNonce(nonce2, key, encryptor2);
+            byte[] buf2 = (byte[])testData.Clone();
+            encryptor2.Encrypt(buf2);
+
+            Assert.IsFalse(buf1.SequenceEqual(buf2));
+        }
+
+        [TestMethod()]
+        public void GenNonceFromInputTest()
+        {
+            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
+
+            var originalIn = Console.In;
+            Console.SetIn(new StringReader("\n"));
+            byte[] nonce = Util.GenNonceFromInput();
+            Console.SetIn(originalIn);
+
+            Assert.IsNotNull(nonce);
+            Assert.IsTrue(nonce.Length == SpmBlockCipher.BlockSizeBytes);
+        }
+
+        [TestMethod()]
+        public void GenNonceFromInput_CustomHashKeyTest()
+        {
+            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
+
+            byte[] hashKey = Util.HexToBin("ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789");
+
+            var originalIn = Console.In;
+            Console.SetIn(new StringReader("\n"));
+            byte[] nonce = Util.GenNonceFromInput(hashKey);
+            Console.SetIn(originalIn);
+
+            Assert.IsNotNull(nonce);
+            Assert.IsTrue(nonce.Length == SpmBlockCipher.BlockSizeBytes);
+        }
+
+        [TestMethod()]
+        public void GenNonceFromInput_UniqueNoncesTest()
+        {
+            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
+
+            var originalIn = Console.In;
+
+            Console.SetIn(new StringReader("\n"));
+            byte[] nonce1 = Util.GenNonceFromInput();
+
+            Console.SetIn(new StringReader("\n"));
+            byte[] nonce2 = Util.GenNonceFromInput();
+
+            Console.SetIn(originalIn);
+
+            Assert.IsNotNull(nonce1);
+            Assert.IsNotNull(nonce2);
+            Assert.IsFalse(nonce1.SequenceEqual(nonce2));
         }
 
     }
