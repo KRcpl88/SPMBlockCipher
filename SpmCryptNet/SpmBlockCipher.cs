@@ -483,6 +483,19 @@ namespace Spm
             s_ApplyPermutation(data, blockOffset, blockPermutation, permutationBuffer);
         }
 
+        public static void s_EncryptBlock(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng, byte[] blockPermutation, byte[] permutationBuffer)
+        {
+            for (int j = 0; 3 > j; ++j)
+            {
+#if DEBUG
+                Console.WriteLine("Round {0}", j);
+#endif
+                // blockPermutation is null when s_blockMode == BLOCK_MODE.NoPermutation;
+                // s_EncryptRound treats null as a skip-permutation signal.
+                s_EncryptRound(data, blockOffset, sbox, maskPrng, blockPermutation, permutationBuffer);
+            }
+        }
+
         public static void s_DecryptRound(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex, byte[] reverseBlockPermutation, byte[] permutationBuffer)
         {
             if (reverseBlockPermutation != null)
@@ -506,7 +519,7 @@ namespace Spm
 
         public void Encrypt(byte[] data)
         {
-            int i, j;
+            int i;
             byte[] blockPermutation = null;
             var permutationBuffer = new byte[BlockSizeBytes];
 
@@ -523,15 +536,9 @@ namespace Spm
                     blockPermutation = ShuffleBlockPermutation();
                 }
 
-                for (j = 0; 3 > j; ++j)
-                {
-#if DEBUG
-                    Console.WriteLine("Round {0}", j);
-#endif
-                    // blockPermutation is null when s_blockMode == BLOCK_MODE.NoPermutation;
-                    // s_EncryptRound treats null as a skip-permutation signal.
-                    s_EncryptRound(data, i, _sbox, _maskPrng, blockPermutation, permutationBuffer);
-                }
+                // blockPermutation is null when s_blockMode == BLOCK_MODE.NoPermutation;
+                // s_EncryptBlock treats null as a skip-permutation signal.
+                s_EncryptBlock(data, i, _sbox, _maskPrng, blockPermutation, permutationBuffer);
 #if DEBUG
                 Console.Write(" Encrypted data: ");
                 foreach (byte c in permutationBuffer)

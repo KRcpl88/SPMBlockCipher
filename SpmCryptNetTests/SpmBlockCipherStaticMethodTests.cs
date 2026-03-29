@@ -377,5 +377,44 @@ namespace Spm.Tests
                 "s_DecryptRound should exactly undo s_EncryptRound when no permutation is used.");
             Assert.AreEqual(0, maskIndex, "All pre-collected masks should have been consumed.");
         }
+
+        // ──────────────────────────────────────────────────────────────────────────
+        // s_EncryptBlock
+        // ──────────────────────────────────────────────────────────────────────────
+
+        [TestMethod()]
+        public void EncryptBlock_NoPermutation_TransformsData()
+        {
+            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
+            var original = MakeTestBlock();
+            var data = (byte[])original.Clone();
+            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
+
+            // Pass null blockPermutation to indicate no permutation mode.
+            SpmBlockCipher.s_EncryptBlock(data, 0, BuildIdentitySbox(), BuildPrng(), null, buffer);
+
+            Assert.IsFalse(data.SequenceEqual(original),
+                "s_EncryptBlock should change the data.");
+        }
+
+        [TestMethod()]
+        public void EncryptBlock_AppliedTwiceWithSameKey_RestoresOriginalData()
+        {
+            // s_EncryptBlock runs exactly 3 rounds of s_EncryptRound.  Because each
+            // round is its own involution (with the identity s-box), applying the full
+            // block twice with the same PRNG seed restores the original data.
+            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
+
+            var sbox = BuildIdentitySbox();
+            var original = MakeTestBlock();
+            var data = (byte[])original.Clone();
+            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
+
+            SpmBlockCipher.s_EncryptBlock(data, 0, sbox, BuildPrng(), null, buffer);
+            SpmBlockCipher.s_EncryptBlock(data, 0, sbox, BuildPrng(), null, buffer); // identical seed
+
+            Assert.IsTrue(data.SequenceEqual(original),
+                "Applying s_EncryptBlock twice with the same key should restore the original data.");
+        }
     }
 }
