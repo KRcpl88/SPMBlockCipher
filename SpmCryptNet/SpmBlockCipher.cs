@@ -359,7 +359,7 @@ namespace Spm
             PermuteSbox();
         }
 
-        public static void s_EncryptForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
+        public static void s_SmForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
         {
             int k;
             SPM_SBOX_WORD mask;
@@ -386,7 +386,7 @@ namespace Spm
             }
         }
 
-        public static void s_EncryptReversePass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
+        public static void s_SmReversePass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
         {
             int k;
             SPM_SBOX_WORD mask;
@@ -430,7 +430,7 @@ namespace Spm
             buffer.CopyTo(data, blockOffset);
         }
 
-        public static void s_DecryptForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex)
+        public static void s_ReverseSmForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex)
         {
             int k;
             SPM_SBOX_WORD temp;
@@ -456,7 +456,7 @@ namespace Spm
             }
         }
 
-        public static void s_DecryptReversePass(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex)
+        public static void s_ReverseSmReversePass(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_SBOX_WORD[] masks, ref int maskIndex)
         {
             int k;
             SPM_SBOX_WORD temp;
@@ -485,9 +485,9 @@ namespace Spm
 
         public static void s_EncryptRound(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng, byte[] blockPermutation, byte[] permutationBuffer)
         {
-            s_EncryptForwardPass(data, blockOffset, sbox, maskPrng);
+            s_SmForwardPass(data, blockOffset, sbox, maskPrng);
 
-            s_EncryptReversePass(data, blockOffset, sbox, maskPrng);
+            s_SmReversePass(data, blockOffset, sbox, maskPrng);
 
             if (blockPermutation == null)
             {
@@ -527,9 +527,9 @@ namespace Spm
 #endif
             }
 
-            s_DecryptForwardPass(data, blockOffset, reverseSbox, masks, ref maskIndex);
+            s_ReverseSmForwardPass(data, blockOffset, reverseSbox, masks, ref maskIndex);
 
-            s_DecryptReversePass(data, blockOffset, reverseSbox, masks, ref maskIndex);
+            s_ReverseSmReversePass(data, blockOffset, reverseSbox, masks, ref maskIndex);
         }
 
         public static void s_DecryptBlock(byte[] data, int blockOffset, SPM_SBOX_WORD[] reverseSbox, SPM_PRNG maskPrng, byte[] reverseBlockPermutation, byte[] permutationBuffer)

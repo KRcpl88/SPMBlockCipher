@@ -6,8 +6,8 @@ namespace Spm.Tests
 {
     /// <summary>
     /// Unit tests for the static methods added to SpmBlockCipher:
-    /// s_EncryptForwardPass, s_EncryptReversePass, s_ApplyPermutation,
-    /// s_DecryptForwardPass, s_DecryptReversePass, s_EncryptRound, and s_DecryptRound.
+    /// s_SmForwardPass, s_SmReversePass, s_ApplyPermutation,
+    /// s_ReverseSmForwardPass, s_ReverseSmReversePass, s_EncryptRound, and s_DecryptRound.
     /// </summary>
     [TestClass()]
     public class SpmBlockCipherStaticMethodTests
@@ -53,7 +53,7 @@ namespace Spm.Tests
         }
 
         // ──────────────────────────────────────────────────────────────────────────
-        // s_EncryptForwardPass
+        // s_SmForwardPass
         // ──────────────────────────────────────────────────────────────────────────
 
         [TestMethod()]
@@ -63,16 +63,16 @@ namespace Spm.Tests
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
 
-            SpmBlockCipher.s_EncryptForwardPass(data, 0, BuildIdentitySbox(), BuildPrng());
+            SpmBlockCipher.s_SmForwardPass(data, 0, BuildIdentitySbox(), BuildPrng());
 
             Assert.IsFalse(data.SequenceEqual(original),
-                "s_EncryptForwardPass should change the data.");
+                "s_SmForwardPass should change the data.");
         }
 
         [TestMethod()]
         public void EncryptForwardPass_AppliedTwiceWithSameKey_RestoresOriginalData()
         {
-            // With an identity s-box, s_EncryptForwardPass applies overlapping 2-byte XOR
+            // With an identity s-box, s_SmForwardPass applies overlapping 2-byte XOR
             // windows in forward order (k = 0 .. BlockInflectionIndex-1).  Because each
             // step reads byte k+1 which may have been written by the previous step, the
             // second application (with the identically-seeded PRNG) restores the original
@@ -83,15 +83,15 @@ namespace Spm.Tests
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
 
-            SpmBlockCipher.s_EncryptForwardPass(data, 0, sbox, BuildPrng());
-            SpmBlockCipher.s_EncryptForwardPass(data, 0, sbox, BuildPrng()); // identical seed → identical masks
+            SpmBlockCipher.s_SmForwardPass(data, 0, sbox, BuildPrng());
+            SpmBlockCipher.s_SmForwardPass(data, 0, sbox, BuildPrng()); // identical seed → identical masks
 
             Assert.IsTrue(data.SequenceEqual(original),
-                "Applying s_EncryptForwardPass twice with the same key should restore the original data.");
+                "Applying s_SmForwardPass twice with the same key should restore the original data.");
         }
 
         // ──────────────────────────────────────────────────────────────────────────
-        // s_EncryptReversePass
+        // s_SmReversePass
         // ──────────────────────────────────────────────────────────────────────────
 
         [TestMethod()]
@@ -101,16 +101,16 @@ namespace Spm.Tests
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
 
-            SpmBlockCipher.s_EncryptReversePass(data, 0, BuildIdentitySbox(), BuildPrng());
+            SpmBlockCipher.s_SmReversePass(data, 0, BuildIdentitySbox(), BuildPrng());
 
             Assert.IsFalse(data.SequenceEqual(original),
-                "s_EncryptReversePass should change the data.");
+                "s_SmReversePass should change the data.");
         }
 
         [TestMethod()]
         public void EncryptReversePass_AppliedTwiceWithSameKey_RestoresOriginalData()
         {
-            // Same involution property as s_EncryptForwardPass, but the window iterates
+            // Same involution property as s_SmForwardPass, but the window iterates
             // in reverse order (k = BlockInflectionIndex-2 down to 0).
             SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
 
@@ -118,11 +118,11 @@ namespace Spm.Tests
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
 
-            SpmBlockCipher.s_EncryptReversePass(data, 0, sbox, BuildPrng());
-            SpmBlockCipher.s_EncryptReversePass(data, 0, sbox, BuildPrng()); // identical seed → identical masks
+            SpmBlockCipher.s_SmReversePass(data, 0, sbox, BuildPrng());
+            SpmBlockCipher.s_SmReversePass(data, 0, sbox, BuildPrng()); // identical seed → identical masks
 
             Assert.IsTrue(data.SequenceEqual(original),
-                "Applying s_EncryptReversePass twice with the same key should restore the original data.");
+                "Applying s_SmReversePass twice with the same key should restore the original data.");
         }
 
         // ──────────────────────────────────────────────────────────────────────────
@@ -193,13 +193,13 @@ namespace Spm.Tests
         }
 
         // ──────────────────────────────────────────────────────────────────────────
-        // s_DecryptForwardPass
+        // s_ReverseSmForwardPass
         // ──────────────────────────────────────────────────────────────────────────
 
         [TestMethod()]
         public void DecryptForwardPass_DecrementsMaskIndexByBlockInflectionIndex()
         {
-            // s_DecryptForwardPass iterates k = 0 .. BlockInflectionIndex-1 (127 steps)
+            // s_ReverseSmForwardPass iterates k = 0 .. BlockInflectionIndex-1 (127 steps)
             // and decrements maskIndex once per step.  Starting at BlockInflectionIndex
             // (127) it must reach 0 after the loop.
             SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
@@ -209,20 +209,20 @@ namespace Spm.Tests
             var masks = new ushort[count];
             int maskIndex = count;
 
-            SpmBlockCipher.s_DecryptForwardPass(data, 0, BuildIdentitySbox(), masks, ref maskIndex);
+            SpmBlockCipher.s_ReverseSmForwardPass(data, 0, BuildIdentitySbox(), masks, ref maskIndex);
 
             Assert.AreEqual(0, maskIndex,
-                $"s_DecryptForwardPass should decrement maskIndex by {count}.");
+                $"s_ReverseSmForwardPass should decrement maskIndex by {count}.");
         }
 
         // ──────────────────────────────────────────────────────────────────────────
-        // s_DecryptReversePass
+        // s_ReverseSmReversePass
         // ──────────────────────────────────────────────────────────────────────────
 
         [TestMethod()]
         public void DecryptReversePass_DecrementsMaskIndexByBlockInflectionIndexMinusOne()
         {
-            // s_DecryptReversePass iterates k = BlockInflectionIndex-2 down to 0 (126 steps)
+            // s_ReverseSmReversePass iterates k = BlockInflectionIndex-2 down to 0 (126 steps)
             // and decrements maskIndex once per step.
             SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
 
@@ -231,10 +231,10 @@ namespace Spm.Tests
             var masks = new ushort[count];
             int maskIndex = count;
 
-            SpmBlockCipher.s_DecryptReversePass(data, 0, BuildIdentitySbox(), masks, ref maskIndex);
+            SpmBlockCipher.s_ReverseSmReversePass(data, 0, BuildIdentitySbox(), masks, ref maskIndex);
 
             Assert.AreEqual(0, maskIndex,
-                $"s_DecryptReversePass should decrement maskIndex by {count}.");
+                $"s_ReverseSmReversePass should decrement maskIndex by {count}.");
         }
 
         // ──────────────────────────────────────────────────────────────────────────
@@ -244,11 +244,11 @@ namespace Spm.Tests
         [TestMethod()]
         public void DecryptForwardAndReversePasses_TogetherUndoEncryptForwardAndReversePasses()
         {
-            // One encrypt round = s_EncryptForwardPass (127 mask steps) + s_EncryptReversePass
+            // One encrypt round = s_SmForwardPass (127 mask steps) + s_SmReversePass
             // (126 mask steps) = 253 mask steps total.
             //
             // The Decrypt algorithm pre-collects all masks from the PRNG in their
-            // production order, then calls s_DecryptForwardPass and s_DecryptReversePass
+            // production order, then calls s_ReverseSmForwardPass and s_ReverseSmReversePass
             // with a maskIndex that starts at 253 and walks backwards.  This reverses
             // the full encrypt sequence and restores the original plaintext.
             SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
@@ -266,16 +266,16 @@ namespace Spm.Tests
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
             var encryptPrng = BuildPrng();
-            SpmBlockCipher.s_EncryptForwardPass(data, 0, sbox, encryptPrng);
-            SpmBlockCipher.s_EncryptReversePass(data, 0, sbox, encryptPrng);
+            SpmBlockCipher.s_SmForwardPass(data, 0, sbox, encryptPrng);
+            SpmBlockCipher.s_SmReversePass(data, 0, sbox, encryptPrng);
 
             // Decrypt by walking the pre-collected mask array backwards.
             int maskIndex = totalMasks;
-            SpmBlockCipher.s_DecryptForwardPass(data, 0, sbox, masks, ref maskIndex);
-            SpmBlockCipher.s_DecryptReversePass(data, 0, sbox, masks, ref maskIndex);
+            SpmBlockCipher.s_ReverseSmForwardPass(data, 0, sbox, masks, ref maskIndex);
+            SpmBlockCipher.s_ReverseSmReversePass(data, 0, sbox, masks, ref maskIndex);
 
             Assert.IsTrue(data.SequenceEqual(original),
-                "s_DecryptForwardPass + s_DecryptReversePass should exactly undo s_EncryptForwardPass + s_EncryptReversePass.");
+                "s_ReverseSmForwardPass + s_ReverseSmReversePass should exactly undo s_SmForwardPass + s_SmReversePass.");
             Assert.AreEqual(0, maskIndex, "All pre-collected masks should have been consumed.");
         }
 
@@ -331,8 +331,8 @@ namespace Spm.Tests
         [TestMethod()]
         public void DecryptRound_NoPermutation_DecrementsMaskIndexByFullRoundCount()
         {
-            // One round = s_DecryptForwardPass (BlockInflectionIndex steps) +
-            //             s_DecryptReversePass (BlockInflectionIndex - 1 steps).
+            // One round = s_ReverseSmForwardPass (BlockInflectionIndex steps) +
+            //             s_ReverseSmReversePass (BlockInflectionIndex - 1 steps).
             SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
 
             int totalMasks = (int)(2 * SpmBlockCipher.BlockInflectionIndex - 1); // 253
