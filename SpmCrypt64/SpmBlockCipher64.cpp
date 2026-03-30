@@ -132,25 +132,37 @@ void CSpmBlockCipher64::s_PermuteCodebook(int n, __in_ecount(cKeyData) const uns
 }
 
 
-void CSpmBlockCipher64::InitSbox()
+void CSpmBlockCipher64::s_InitSbox(
+    __out_ecount(SPM_SBOX_WIDTH) SPM_SBOX_WORD* rgSbox,
+    __in_ecount(SPM_SBOX_WIDTH) const SPM_SBOX_WORD* rgCodebook,
+    __out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation,
+    __in_ecount_opt(k_cSpmBlockSizeBytes) const unsigned char* prgPermutationCodebook)
 {
     // math is specific to 64 bit version
     C_ASSERT(sizeof(size_t) == sizeof(INT64));
 
     // initialize Sbox values from codebook
-    ::memcpy(m_rgSbox, s_rgCodebook, sizeof(m_rgSbox));
+    ::memcpy(rgSbox, rgCodebook, SPM_SBOX_WIDTH * sizeof(SPM_SBOX_WORD));
 
     if (s_eBlockMode == BLOCK_MODE::NoPermutation)
     {
         return;
     }
 
-    ASSERT(s_prgPermutationCodebook != NULL);
-    ASSERT(k_cSpmBlockSizeBytes == sizeof(m_rgBlockPermutation));
-    ::memcpy(m_rgBlockPermutation, s_prgPermutationCodebook, sizeof(m_rgBlockPermutation));
+    ASSERT(prgPermutationCodebook != NULL);
+    ::memcpy(rgBlockPermutation, prgPermutationCodebook, k_cSpmBlockSizeBytes);
 }
 
-void CSpmBlockCipher64::PermuteSbox()
+void CSpmBlockCipher64::InitSbox()
+{
+    s_InitSbox(m_rgSbox, s_rgCodebook, m_rgBlockPermutation, s_prgPermutationCodebook);
+}
+
+void CSpmBlockCipher64::s_PermuteSbox(
+    __inout_ecount(SPM_SBOX_WIDTH) SPM_SBOX_WORD* rgSbox,
+    __out_ecount(SPM_SBOX_WIDTH) SPM_SBOX_WORD* rgReverseSbox,
+    __inout_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation,
+    SPM_PRNG& prngSBox)
 {
     SPM_SBOX_WORD nRand;
     SPM_SBOX_WORD nTemp;
@@ -159,24 +171,24 @@ void CSpmBlockCipher64::PermuteSbox()
     size_t j=0;
     for(j=0; 16 >j; ++j)
     {
-        for(i=0; ARRAYSIZE(m_rgSbox) >i; ++i)
+        for(i=0; SPM_SBOX_WIDTH >i; ++i)
         {
             // remember the current value for this Sbox entry
-            nTemp = m_rgSbox[i];
-            nRand = m_prngSBox.Rand();
+            nTemp = rgSbox[i];
+            nRand = prngSBox.Rand();
 
             // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
-            m_rgSbox[i] = m_rgSbox[static_cast<SPM_SBOX_WORD>( nRand)];
-            m_rgSbox[static_cast<SPM_SBOX_WORD>(nRand)] = nTemp;
+            rgSbox[i] = rgSbox[static_cast<SPM_SBOX_WORD>(nRand)];
+            rgSbox[static_cast<SPM_SBOX_WORD>(nRand)] = nTemp;
         }
     }
 
     // now reverse the sbox
-    for(i=0; ARRAYSIZE(m_rgSbox) > i; ++i)
+    for(i=0; SPM_SBOX_WIDTH > i; ++i)
     {
-        // if m_rgSbox[x] == y, m_rgReverseSbox[y] == x, so m_rgReverseSbox[m_rgSbox[x]] = x
-        // example, if m_rgSbox[0] == 236, m_rgReverseSbox[236] = 0
-        m_rgReverseSbox[m_rgSbox[i]] = static_cast<SPM_SBOX_WORD>(i);
+        // if rgSbox[x] == y, rgReverseSbox[y] == x, so rgReverseSbox[rgSbox[x]] = x
+        // example, if rgSbox[0] == 236, rgReverseSbox[236] = 0
+        rgReverseSbox[rgSbox[i]] = static_cast<SPM_SBOX_WORD>(i);
     }
 
 #ifdef _DEBUG
@@ -190,11 +202,11 @@ void CSpmBlockCipher64::PermuteSbox()
     // initialize Sbox values to 0, 1, 2, ... N
     for (i = 0; SPM_SBOX_WIDTH > i; ++i)
     {
-        ++(rgCount[m_rgSbox[i]]);
-        ASSERT(rgCount[m_rgSbox[i]] <= 1)
+        ++(rgCount[rgSbox[i]]);
+        ASSERT(rgCount[rgSbox[i]] <= 1)
 
-        ++(rgReverseCount[m_rgReverseSbox[i]]);
-        ASSERT(rgReverseCount[m_rgReverseSbox[i]] <= 1)
+        ++(rgReverseCount[rgReverseSbox[i]]);
+        ASSERT(rgReverseCount[rgReverseSbox[i]] <= 1)
     }
 #endif // _DEBUG
 
@@ -203,48 +215,56 @@ void CSpmBlockCipher64::PermuteSbox()
         return;
     }
     
-    // init m_rgBlockPermutation
+    // init rgBlockPermutation
     for (j = 0; 16 > j; ++j)
     {
-        for (i = 0; ARRAYSIZE(m_rgBlockPermutation) > i; ++i)
+        for (i = 0; k_cSpmBlockSizeBytes > i; ++i)
         {
             // remember the current value for this entry
-            nTemp = m_rgBlockPermutation[i];
-            nRand = m_prngSBox.Rand() % ARRAYSIZE(m_rgBlockPermutation);
+            nTemp = rgBlockPermutation[i];
+            nRand = prngSBox.Rand() % k_cSpmBlockSizeBytes;
 
             // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
-            m_rgBlockPermutation[i] = m_rgBlockPermutation[nRand];
-            m_rgBlockPermutation[nRand] = static_cast<unsigned char>(nTemp);
+            rgBlockPermutation[i] = rgBlockPermutation[nRand];
+            rgBlockPermutation[nRand] = static_cast<unsigned char>(nTemp);
         }
     }
 
 #ifdef _DEBUG
-    // validate SBoxes
-    UCHAR rgBlockPermutationCount[ARRAYSIZE(m_rgBlockPermutation)];
+    // validate block permutation
+    UCHAR rgBlockPermutationCount[k_cSpmBlockSizeBytes];
 
     ::memset(rgBlockPermutationCount, 0, sizeof(rgBlockPermutationCount));
 
     // initialize Sbox values to 0, 1, 2, ... N
-    for (i = 0; ARRAYSIZE(rgBlockPermutationCount) > i; ++i)
+    for (i = 0; k_cSpmBlockSizeBytes > i; ++i)
     {
-        ++(rgBlockPermutationCount[m_rgBlockPermutation[i]]);
-        ASSERT(rgBlockPermutationCount[m_rgBlockPermutation[i]] <= 1)
+        ++(rgBlockPermutationCount[rgBlockPermutation[i]]);
+        ASSERT(rgBlockPermutationCount[rgBlockPermutation[i]] <= 1)
     }
 #endif // _DEBUG
 }
 
-void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation)
+void CSpmBlockCipher64::PermuteSbox()
+{
+    s_PermuteSbox(m_rgSbox, m_rgReverseSbox, m_rgBlockPermutation, m_prngSBox);
+}
+
+void CSpmBlockCipher64::s_ShuffleBlockPermutation(
+    __in_ecount(k_cSpmBlockSizeBytes) const unsigned char* rgSourceBlockPermutation,
+    __out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation,
+    SPM_PRNG& prngSBox)
 {
     size_t i;
     SPM_SBOX_WORD nTemp;
     SPM_SBOX_WORD nRand;
 
-    ::memcpy(rgBlockPermutation, m_rgBlockPermutation, k_cSpmBlockSizeBytes);
+    ::memcpy(rgBlockPermutation, rgSourceBlockPermutation, k_cSpmBlockSizeBytes);
     for (i = 0; k_cSpmBlockSizeBytes > i; ++i)
     {
         // remember the current value for this entry
         nTemp = rgBlockPermutation[i];
-        nRand = m_prngSBox.Rand() % k_cSpmBlockSizeBytes;
+        nRand = prngSBox.Rand() % k_cSpmBlockSizeBytes;
 
         // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
         rgBlockPermutation[i] = rgBlockPermutation[nRand];
@@ -256,6 +276,11 @@ void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeByte
 #if DIAGNOSTIC_OUTPUT ==1
     printf("\n");
 #endif// DIAGNOSTIC_OUTPUT ==1
+}
+
+void CSpmBlockCipher64::ShuffleBlockPermutation(__out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation)
+{
+    s_ShuffleBlockPermutation(m_rgBlockPermutation, rgBlockPermutation, m_prngSBox);
 }
 
 void CSpmBlockCipher64::ReverseBlockPermutation(__in_ecount(k_cSpmBlockSizeBytes) const unsigned char* rgBlockPermutation, __out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgReverseBlockPermutation)

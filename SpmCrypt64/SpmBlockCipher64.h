@@ -98,6 +98,23 @@ public:
     static void s_PermuteCodebook(int n, __in_ecount(cKeyData) const unsigned char* pKeyData, size_t cKeyData);
     static void s_CheckCodebook();
 
+    static void s_InitSbox(
+        __out_ecount(SPM_SBOX_WIDTH) SPM_SBOX_WORD* rgSbox,
+        __in_ecount(SPM_SBOX_WIDTH) const SPM_SBOX_WORD* rgCodebook,
+        __out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation,
+        __in_ecount_opt(k_cSpmBlockSizeBytes) const unsigned char* prgPermutationCodebook);
+
+    static void s_PermuteSbox(
+        __inout_ecount(SPM_SBOX_WIDTH) SPM_SBOX_WORD* rgSbox,
+        __out_ecount(SPM_SBOX_WIDTH) SPM_SBOX_WORD* rgReverseSbox,
+        __inout_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation,
+        SPM_PRNG& prngSBox);
+
+    static void s_ShuffleBlockPermutation(
+        __in_ecount(k_cSpmBlockSizeBytes) const unsigned char* rgSourceBlockPermutation,
+        __out_ecount(k_cSpmBlockSizeBytes) unsigned char* rgBlockPermutation,
+        SPM_PRNG& prngSBox);
+
     static void s_PrintCipherName()
     {
         printf("%lu bit SpmBlockCipher64 with %lu bit blocksize, %lu bit sbox, and ", 

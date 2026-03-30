@@ -178,28 +178,33 @@ namespace Spm
             return 0;
         }
 
-        private void InitSbox()
+        public static void s_InitSbox(SPM_SBOX_WORD[] sbox, SPM_SBOX_WORD[] codebook, byte[] blockPermutation, byte[] permutationCodeBook)
         {
             // initialize Sbox values from codebook
-            Debug.Assert(_sbox != null);
-            Debug.Assert(CodeBook != null);
-            Debug.Assert(_sbox.Length == SPM_SBOX_WIDTH);
-            Debug.Assert(CodeBook.Length == SPM_SBOX_WIDTH);
-            CodeBook.CopyTo(_sbox, 0);
+            Debug.Assert(sbox != null);
+            Debug.Assert(codebook != null);
+            Debug.Assert(sbox.Length == SPM_SBOX_WIDTH);
+            Debug.Assert(codebook.Length == SPM_SBOX_WIDTH);
+            codebook.CopyTo(sbox, 0);
 
             if (s_blockMode == BLOCK_MODE.NoPermutation)
             {
                 return;
             }
 
-            Debug.Assert(_blockPermutation != null);
-            Debug.Assert(PermutationCodeBook != null);
-            Debug.Assert(_blockPermutation.Length == BlockSizeBytes);
-            Debug.Assert(PermutationCodeBook.Length == BlockSizeBytes);
-            PermutationCodeBook.CopyTo(_blockPermutation, 0);
+            Debug.Assert(blockPermutation != null);
+            Debug.Assert(permutationCodeBook != null);
+            Debug.Assert(blockPermutation.Length == BlockSizeBytes);
+            Debug.Assert(permutationCodeBook.Length == BlockSizeBytes);
+            permutationCodeBook.CopyTo(blockPermutation, 0);
         }
 
-        private void PermuteSbox()
+        private void InitSbox()
+        {
+            s_InitSbox(_sbox, CodeBook, _blockPermutation, PermutationCodeBook);
+        }
+
+        public static void s_PermuteSbox(SPM_SBOX_WORD[] sbox, SPM_SBOX_WORD[] reverseSbox, byte[] blockPermutation, SPM_PRNG sboxPrng)
         {
             SPM_SBOX_WORD rand;
             SPM_SBOX_WORD temp;
@@ -208,24 +213,24 @@ namespace Spm
             size_t j = 0;
             for (j = 0; 16 > j; ++j)
             {
-                for (i = 0; _sbox.Length > i; ++i)
+                for (i = 0; sbox.Length > i; ++i)
                 {
                     // remember the current value for this Sbox entry
-                    temp = _sbox[i];
-                    rand = _sboxPrng.Rand();
+                    temp = sbox[i];
+                    rand = sboxPrng.Rand();
 
                     // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
-                    _sbox[i] = _sbox[rand];
-                    _sbox[rand] = temp;
+                    sbox[i] = sbox[rand];
+                    sbox[rand] = temp;
                 }
             }
 
             // now reverse the sbox
-            for (i = 0; _sbox.Length > i; ++i)
+            for (i = 0; sbox.Length > i; ++i)
             {
-                // if m_rgSbox[x] == y, m_rgReverseSbox[y] == x, so m_rgReverseSbox[m_rgSbox[x]] = x
-                // example, if m_rgSbox[0] == 236, m_rgReverseSbox[236] = 0
-                _reverseSbox[_sbox[i]] = (SPM_SBOX_WORD)(i);
+                // if sbox[x] == y, reverseSbox[y] == x, so reverseSbox[sbox[x]] = x
+                // example, if sbox[0] == 236, reverseSbox[236] = 0
+                reverseSbox[sbox[i]] = (SPM_SBOX_WORD)(i);
             }
 
 #if(DEBUG)
@@ -236,11 +241,11 @@ namespace Spm
             // initialize Sbox values to 0, 1, 2, ... N
             for (i = 0; SPM_SBOX_WIDTH > i; ++i)
             {
-                ++(count[_sbox[i]]);
-                Debug.Assert(count[_sbox[i]] <= 1);
+                ++(count[sbox[i]]);
+                Debug.Assert(count[sbox[i]] <= 1);
 
-                ++(reverseCount[_reverseSbox[i]]);
-                Debug.Assert(reverseCount[_reverseSbox[i]] <= 1);
+                ++(reverseCount[reverseSbox[i]]);
+                Debug.Assert(reverseCount[reverseSbox[i]] <= 1);
             }
 #endif // _DEBUG
 
@@ -249,50 +254,55 @@ namespace Spm
                 return;
             }
 
-            // init m_rgBlockPermutation
+            // init blockPermutation
             for (j = 0; 16 > j; ++j)
             {
-                for (i = 0; _blockPermutation.Length > i; ++i)
+                for (i = 0; blockPermutation.Length > i; ++i)
                 {
                     // remember the current value for this entry
-                    temp = _blockPermutation[i];
-                    rand = (SPM_SBOX_WORD)(_sboxPrng.Rand() % (_blockPermutation.Length));
+                    temp = blockPermutation[i];
+                    rand = (SPM_SBOX_WORD)(sboxPrng.Rand() % (blockPermutation.Length));
 
                     // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
-                    _blockPermutation[i] = _blockPermutation[rand];
-                    _blockPermutation[rand] = (byte)temp;
+                    blockPermutation[i] = blockPermutation[rand];
+                    blockPermutation[rand] = (byte)temp;
                 }
             }
 
 #if(DEBUG)
-            // validate SBoxes
-            var blockPermutationCount = new byte[_blockPermutation.Length];
+            // validate block permutation
+            var blockPermutationCount = new byte[blockPermutation.Length];
 
-            Debug.Assert(blockPermutationCount.Length == _blockPermutation.Length);
+            Debug.Assert(blockPermutationCount.Length == blockPermutation.Length);
 
             // initialize Sbox values to 0, 1, 2, ... N
             for (i = 0; blockPermutationCount.Length > i; ++i)
             {
-                ++(blockPermutationCount[_blockPermutation[i]]);
-                Debug.Assert(blockPermutationCount[_blockPermutation[i]] <= 1);
+                ++(blockPermutationCount[blockPermutation[i]]);
+                Debug.Assert(blockPermutationCount[blockPermutation[i]] <= 1);
             }
 #endif // _DEBUG
         }
 
-        public byte[] ShuffleBlockPermutation(int j = 0)
+        private void PermuteSbox()
+        {
+            s_PermuteSbox(_sbox, _reverseSbox, _blockPermutation, _sboxPrng);
+        }
+
+        public static byte[] s_ShuffleBlockPermutation(byte[] sourceBlockPermutation, SPM_PRNG sboxPrng)
         {
             SPM_SBOX_WORD rand;
             SPM_SBOX_WORD temp;
             size_t i = 0;
             var blockPermutation = new byte[BlockSizeBytes];
 
-            _blockPermutation.CopyTo(blockPermutation, 0);
+            sourceBlockPermutation.CopyTo(blockPermutation, 0);
 
             for (i = 0; blockPermutation.Length > i; ++i)
             {
                 // remember the current value for this entry
                 temp = blockPermutation[i];
-                rand = (SPM_SBOX_WORD)(_sboxPrng.Rand() % (blockPermutation.Length));
+                rand = (SPM_SBOX_WORD)(sboxPrng.Rand() % (blockPermutation.Length));
 
                 // swap the Sbox entry with another randomly chosen Sbox entry, which will preserve the permutation
                 blockPermutation[i] = blockPermutation[rand];
@@ -306,6 +316,11 @@ namespace Spm
             Console.WriteLine();
 #endif
             return blockPermutation;
+        }
+
+        public byte[] ShuffleBlockPermutation()
+        {
+            return s_ShuffleBlockPermutation(_blockPermutation, _sboxPrng);
         }
 
         public byte[] ReverseBlockPermutation(byte[] blockPermutation)
