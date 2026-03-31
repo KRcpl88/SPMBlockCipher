@@ -2,7 +2,7 @@
 
 ## Build, Test, and Run
 
-The .NET projects target **net10.0**. Tests use **MSTest**.
+The .NET projects target **net9.0**. Tests use **MSTest**.
 
 ```powershell
 # Build
@@ -25,7 +25,7 @@ The C++ project (`SpmCrypt64/SpmCrypt64.vcxproj`) builds with Visual Studio 2019
 
 ## Architecture
 
-This is a **block cipher** implementation using a Substitution-Permutation-Mask (SPM) algorithm, implemented in three languages: C# (.NET), C++ (Win32), and PowerShell.
+This is a **block cipher** implementation using a Substitution-Permutation-Mask (SPM) algorithm, implemented in two languages: C# (.NET) and PowerShell.
 
 ### Core algorithm (128-byte blocks, 32-byte keys, 3 rounds per block)
 
