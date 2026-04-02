@@ -144,22 +144,23 @@ void ParsePassword(__inout_z const char* pszPassword, __in size_t cbBin, __out_b
 
 void Usage()
 {
-    printf("Usage:\n\nFbCrypt64 E|EP|D|DP|K|L|R filein fileout key codebook\n");
+    CSpmBlockCipher64::s_PrintCipherName();
+    printf("\n\nUsage:\n\nSpmBlockCipher64 E|EP|D|DP|K|L|R filein fileout key codebook\n");
 }
 
 void PRNGUsage()
 {
-    printf("Usage:\n\nFbCrypt64 R sample numrows numcols minrow maxrow mincol maxcol filename key\n");
+    printf("Usage:\n\nSpmBlockCipher64 R sample numrows numcols minrow maxrow mincol maxcol filename key\n");
 }
 
 void LinearPRNGUsage()
 {
-    printf("Usage:\n\nFbCrypt64 L samplesize bytespersample filename key\n");
+    printf("Usage:\n\nSpmBlockCipher64 L samplesize bytespersample filename key\n");
 }
 
 void GenKeyUsage()
 {
-    printf("Usage:\n\nFbCrypt64 K\n\nCan be used for a key or a codebook");
+    printf("Usage:\n\nSpmBlockCipher64 K\n\nCan be used for a key or a codebook");
 }
 
 void InvalidKey()
@@ -741,6 +742,8 @@ int _tmain(int argc, _TCHAR* argv[])
         UnitTests::s_NonceTest();
         //UnitTests::s_SingleBitFlipTest();
         UnitTests::s_TestPerfVsAes();
+
+        printf("All Tests passed\n");
         return 0;
     }
 #endif // _DEBUG

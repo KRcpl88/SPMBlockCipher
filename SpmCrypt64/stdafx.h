@@ -21,7 +21,7 @@
 
 #ifdef _DEBUG
 #define DIAGNOSTIC_OUTPUT 1
-#define ASSERT(t) {if (!(t)){DebugBreak();}}
+#define ASSERT(t) {if (!(t)){printf("ASSERT\n"); DebugBreak();}}
 #else
 #define DIAGNOSTIC_OUTPUT 0
 #define ASSERT(t) ;
