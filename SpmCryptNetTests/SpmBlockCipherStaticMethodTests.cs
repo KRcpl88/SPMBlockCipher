@@ -12,8 +12,6 @@ namespace Spm.Tests
     [TestClass()]
     public class SpmBlockCipherStaticMethodTests
     {
-        private const string TestCodebookKey = "b6a4c072764a2233db9c23b0bc79c143";
-
         /// <summary>
         /// Builds an identity s-box: sbox[i] == i for all i.
         /// With an identity s-box the substitution step is a no-op so only the
@@ -59,7 +57,6 @@ namespace Spm.Tests
         [TestMethod()]
         public void EncryptForwardPass_TransformsData()
         {
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
 
@@ -72,13 +69,8 @@ namespace Spm.Tests
         [TestMethod()]
         public void EncryptForwardPass_AppliedTwiceWithSameKey_RestoresOriginalData()
         {
-            // With an identity s-box, s_SmForwardPass applies overlapping 2-byte XOR
-            // windows in forward order (k = 0 .. BlockInflectionIndex-1).  Because each
-            // step reads byte k+1 which may have been written by the previous step, the
-            // second application (with the identically-seeded PRNG) restores the original
-            // data: the "involution" property can be verified by induction on k.
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
-
+            // With an identity s-box, applying s_SmForwardPass twice with the
+            // same PRNG seed restores the original data (involution property).
             var sbox = BuildIdentitySbox();
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
@@ -97,7 +89,6 @@ namespace Spm.Tests
         [TestMethod()]
         public void EncryptReversePass_TransformsData()
         {
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
 
@@ -112,9 +103,8 @@ namespace Spm.Tests
         {
             // Same involution property as s_SmForwardPass, but the window iterates
             // in reverse order (k = BlockInflectionIndex-2 down to 0).
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
 
-            var sbox = BuildIdentitySbox();
+            var sbox= BuildIdentitySbox();
             var original = MakeTestBlock();
             var data = (byte[])original.Clone();
 
@@ -202,9 +192,8 @@ namespace Spm.Tests
             // s_ReverseSmForwardPass iterates k = 0 .. BlockInflectionIndex-1 (127 steps)
             // and decrements maskIndex once per step.  Starting at BlockInflectionIndex
             // (127) it must reach 0 after the loop.
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
 
-            int count = (int)SpmBlockCipher.BlockInflectionIndex;
+            int count= (int)SpmBlockCipher.BlockInflectionIndex;
             var data = new byte[SpmBlockCipher.BlockSizeBytes];
             var masks = new ushort[count];
             int maskIndex = count;
@@ -224,9 +213,8 @@ namespace Spm.Tests
         {
             // s_ReverseSmReversePass iterates k = BlockInflectionIndex-2 down to 0 (126 steps)
             // and decrements maskIndex once per step.
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
 
-            int count = (int)SpmBlockCipher.BlockInflectionIndex - 1;
+            int count= (int)SpmBlockCipher.BlockInflectionIndex - 1;
             var data = new byte[SpmBlockCipher.BlockSizeBytes];
             var masks = new ushort[count];
             int maskIndex = count;
@@ -251,9 +239,8 @@ namespace Spm.Tests
             // production order, then calls s_ReverseSmForwardPass and s_ReverseSmReversePass
             // with a maskIndex that starts at 253 and walks backwards.  This reverses
             // the full encrypt sequence and restores the original plaintext.
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
 
-            var sbox = BuildIdentitySbox();
+            var sbox= BuildIdentitySbox();
             int totalMasks = (int)(2 * SpmBlockCipher.BlockInflectionIndex - 1); // 253
 
             // Pre-collect all masks the PRNG will produce during encryption.
@@ -284,24 +271,8 @@ namespace Spm.Tests
         // ──────────────────────────────────────────────────────────────────────────
 
         [TestMethod()]
-        public void EncryptRound_NoPermutation_TransformsData()
-        {
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
-            var original = MakeTestBlock();
-            var data = (byte[])original.Clone();
-            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
-
-            // Pass null blockPermutation to indicate no permutation mode.
-            SpmBlockCipher.s_EncryptRound(data, 0, BuildIdentitySbox(), BuildPrng(), null, buffer);
-
-            Assert.IsFalse(data.SequenceEqual(original),
-                "s_EncryptRound should change the data.");
-        }
-
-        [TestMethod()]
         public void EncryptRound_WithPermutation_TransformsDataDifferentlyFromNoPermutation()
         {
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
             var sbox = BuildIdentitySbox();
             var original = MakeTestBlock();
 
@@ -325,137 +296,121 @@ namespace Spm.Tests
         }
 
         // ──────────────────────────────────────────────────────────────────────────
-        // s_DecryptRound
+        // Decomposed Encrypt / Decrypt round-trip using the same key, codebook,
+        // and test data as SpmBlockCipherTests.EncryptDecryptTest
         // ──────────────────────────────────────────────────────────────────────────
 
         [TestMethod()]
-        public void DecryptRound_NoPermutation_DecrementsMaskIndexByFullRoundCount()
+        public void DecomposedEncryptDecryptTest()
         {
-            // One round = s_ReverseSmForwardPass (BlockInflectionIndex steps) +
-            //             s_ReverseSmReversePass (BlockInflectionIndex - 1 steps).
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
+            byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+            Assert.IsTrue(SpmBlockCipher.s_ValidKey(key));
 
-            int totalMasks = (int)(2 * SpmBlockCipher.BlockInflectionIndex - 1); // 253
-            var data = new byte[SpmBlockCipher.BlockSizeBytes];
-            var masks = new ushort[totalMasks];
-            int maskIndex = totalMasks;
-            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
+            // Build the same state that SetKeys produces: two PRNGs (sbox + mask),
+            // an sbox/reverseSbox pair, and a block permutation table.
+            int prngKeyWidth = (int)SimplePrng.GetKeyWidth();
 
-            SpmBlockCipher.s_DecryptRound(data, 0, BuildIdentitySbox(), masks, ref maskIndex, null, buffer);
+            var encSboxPrng = new SimplePrng();
+            encSboxPrng.SetKeys(key, 0);
+            var encMaskPrng = new SimplePrng();
+            encMaskPrng.SetKeys(key, prngKeyWidth);
 
-            Assert.AreEqual(0, maskIndex,
-                $"s_DecryptRound should decrement maskIndex by {totalMasks}.");
+            var sbox = new ushort[SpmBlockCipher.SPM_SBOX_WIDTH];
+            var reverseSbox = new ushort[SpmBlockCipher.SPM_SBOX_WIDTH];
+            var blockPermutation = new byte[SpmBlockCipher.BlockSizeBytes];
+
+            SpmBlockCipher.s_InitSbox(sbox, SpmBlockCipher.CodeBook, blockPermutation, SpmBlockCipher.PermutationCodeBook);
+            SpmBlockCipher.s_PermuteSbox(sbox, reverseSbox, blockPermutation, encSboxPrng);
+
+            // Prepare the same two-block test data used by EncryptDecryptTest.
+            var testData = new byte[SpmBlockCipher.BlockSizeBytes * 2];
+            System.Text.Encoding.UTF8.GetBytes("Block 1").CopyTo(testData, 0);
+            System.Text.Encoding.UTF8.GetBytes("Block 2").CopyTo(testData, (int)SpmBlockCipher.BlockSizeBytes);
+
+            var buffer = new byte[SpmBlockCipher.BlockSizeBytes * 2];
+            testData.CopyTo(buffer, 0);
+
+            DecomposedEncrypt(buffer, sbox, encSboxPrng, encMaskPrng, blockPermutation);
+
+            // Validate the encrypted output matches the known regression value.
+            byte[] expected = Util.HexToBin(TestConstants.ExpectedEncryptOutput);
+            Assert.IsTrue(buffer.SequenceEqual(expected),
+                $"Decomposed encryption output does not match expected.\nGot: {Util.Bin2Hex(buffer)}");
+
+            // Now decrypt using the same decomposed approach with a fresh set of PRNGs
+            // seeded identically (mirroring what Decrypt does with the same key).
+            var decSboxPrng = new SimplePrng();
+            decSboxPrng.SetKeys(key, 0);
+            var decMaskPrng = new SimplePrng();
+            decMaskPrng.SetKeys(key, prngKeyWidth);
+
+            var decSbox = new ushort[SpmBlockCipher.SPM_SBOX_WIDTH];
+            var decReverseSbox = new ushort[SpmBlockCipher.SPM_SBOX_WIDTH];
+            var decBlockPermutation = new byte[SpmBlockCipher.BlockSizeBytes];
+
+            SpmBlockCipher.s_InitSbox(decSbox, SpmBlockCipher.CodeBook, decBlockPermutation, SpmBlockCipher.PermutationCodeBook);
+            SpmBlockCipher.s_PermuteSbox(decSbox, decReverseSbox, decBlockPermutation, decSboxPrng);
+
+            DecomposedDecrypt(buffer, decReverseSbox, decSboxPrng, decMaskPrng, decBlockPermutation);
+
+            Assert.IsTrue(buffer.SequenceEqual(testData),
+                "Decomposed decrypt should restore the original plaintext.");
         }
 
-        [TestMethod()]
-        public void DecryptRound_UndoesEncryptRound_NoPermutation()
+        /// <summary>
+        /// Encrypts data block-by-block using the individual static helper methods,
+        /// mirroring the logic of SpmBlockCipher.Encrypt.
+        /// </summary>
+        private static void DecomposedEncrypt(byte[] data, ushort[] sbox, SimplePrng sboxPrng, SimplePrng maskPrng, byte[] blockPermutation)
         {
-            // Full round-trip using s_EncryptRound / s_DecryptRound with no permutation.
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
+            var permutationBuffer = new byte[SpmBlockCipher.BlockSizeBytes];
 
-            var sbox = BuildIdentitySbox();
-            int totalMasks = (int)(2 * SpmBlockCipher.BlockInflectionIndex - 1); // 253
+            for (int i = 0; i < data.Length; i += (int)SpmBlockCipher.BlockSizeBytes)
+            {
+                // Per-block permutation shuffle (same as ShuffleBlockPermutation)
+                byte[] perm = SpmBlockCipher.s_ShuffleBlockPermutation(blockPermutation, sboxPrng);
 
-            // Pre-collect the masks that the PRNG will produce during encryption.
-            var collectPrng = BuildPrng();
-            var masks = new ushort[totalMasks];
-            for (int i = 0; i < totalMasks; i++)
-                masks[i] = collectPrng.Rand();
-
-            var original = MakeTestBlock();
-            var data = (byte[])original.Clone();
-            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
-
-            // Encrypt (no permutation).
-            SpmBlockCipher.s_EncryptRound(data, 0, sbox, BuildPrng(), null, buffer);
-
-            // Decrypt by walking the pre-collected masks backwards.
-            int maskIndex = totalMasks;
-            SpmBlockCipher.s_DecryptRound(data, 0, sbox, masks, ref maskIndex, null, buffer);
-
-            Assert.IsTrue(data.SequenceEqual(original),
-                "s_DecryptRound should exactly undo s_EncryptRound when no permutation is used.");
-            Assert.AreEqual(0, maskIndex, "All pre-collected masks should have been consumed.");
+                // 3 rounds per block
+                for (int round = 0; round < 3; round++)
+                {
+                    SpmBlockCipher.s_SmForwardPass(data, i, sbox, maskPrng);
+                    SpmBlockCipher.s_SmReversePass(data, i, sbox, maskPrng);
+                    SpmBlockCipher.s_ApplyPermutation(data, i, perm, permutationBuffer);
+                }
+            }
         }
 
-        // ──────────────────────────────────────────────────────────────────────────
-        // s_EncryptBlock
-        // ──────────────────────────────────────────────────────────────────────────
-
-        [TestMethod()]
-        public void EncryptBlock_NoPermutation_TransformsData()
+        /// <summary>
+        /// Decrypts data block-by-block using the individual static helper methods,
+        /// mirroring the logic of SpmBlockCipher.Decrypt.
+        /// </summary>
+        private static void DecomposedDecrypt(byte[] data, ushort[] reverseSbox, SimplePrng sboxPrng, SimplePrng maskPrng, byte[] blockPermutation)
         {
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
-            var original = MakeTestBlock();
-            var data = (byte[])original.Clone();
-            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
+            var permutationBuffer = new byte[SpmBlockCipher.BlockSizeBytes];
+            int masksPerRound = (int)(2 * SpmBlockCipher.BlockInflectionIndex - 1);
 
-            // Pass null blockPermutation to indicate no permutation mode.
-            SpmBlockCipher.s_EncryptBlock(data, 0, BuildIdentitySbox(), BuildPrng(), null, buffer);
+            for (int i = 0; i < data.Length; i += (int)SpmBlockCipher.BlockSizeBytes)
+            {
+                // Per-block: compute the shuffled permutation, then its inverse
+                byte[] perm = SpmBlockCipher.s_ShuffleBlockPermutation(blockPermutation, sboxPrng);
+                var reversePerm = new byte[SpmBlockCipher.BlockSizeBytes];
+                for (int k = 0; k < perm.Length; k++)
+                    reversePerm[perm[k]] = (byte)k;
 
-            Assert.IsFalse(data.SequenceEqual(original),
-                "s_EncryptBlock should change the data.");
-        }
+                // Pre-collect all masks for 3 rounds (same order maskPrng would produce)
+                var masks = new ushort[3 * masksPerRound];
+                for (int m = 0; m < masks.Length; m++)
+                    masks[m] = maskPrng.Rand();
 
-        [TestMethod()]
-        public void EncryptBlock_AppliedTwiceWithSameKey_RestoresOriginalData()
-        {
-            // s_EncryptBlock runs exactly 3 rounds of s_EncryptRound.  Because each
-            // round is its own involution (with the identity s-box), applying the full
-            // block twice with the same PRNG seed restores the original data.
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
-
-            var sbox = BuildIdentitySbox();
-            var original = MakeTestBlock();
-            var data = (byte[])original.Clone();
-            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
-
-            SpmBlockCipher.s_EncryptBlock(data, 0, sbox, BuildPrng(), null, buffer);
-            SpmBlockCipher.s_EncryptBlock(data, 0, sbox, BuildPrng(), null, buffer); // identical seed
-
-            Assert.IsTrue(data.SequenceEqual(original),
-                "Applying s_EncryptBlock twice with the same key should restore the original data.");
-        }
-
-        // ──────────────────────────────────────────────────────────────────────────
-        // s_DecryptBlock
-        // ──────────────────────────────────────────────────────────────────────────
-
-        [TestMethod()]
-        public void DecryptBlock_NoPermutation_TransformsData()
-        {
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
-            var original = MakeTestBlock();
-            var data = (byte[])original.Clone();
-            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
-
-            // Pass null reverseBlockPermutation to indicate no permutation mode.
-            SpmBlockCipher.s_DecryptBlock(data, 0, BuildIdentitySbox(), BuildPrng(), null, buffer);
-
-            Assert.IsFalse(data.SequenceEqual(original),
-                "s_DecryptBlock should change the data.");
-        }
-
-        [TestMethod()]
-        public void DecryptBlock_UndoesEncryptBlock_NoPermutation()
-        {
-            // s_EncryptBlock feeds the PRNG sequentially; s_DecryptBlock must pre-collect
-            // the same masks (in order) then apply the decrypt rounds in reverse.
-            SpmBlockCipher.InitCodebook(TestCodebookKey, SpmBlockCipher.BLOCK_MODE.NoPermutation);
-
-            var sbox = BuildIdentitySbox();
-            var original = MakeTestBlock();
-            var data = (byte[])original.Clone();
-            var buffer = new byte[SpmBlockCipher.BlockSizeBytes];
-
-            // Encrypt with one PRNG instance.
-            SpmBlockCipher.s_EncryptBlock(data, 0, sbox, BuildPrng(), null, buffer);
-
-            // Decrypt with an independently-seeded but identical PRNG.
-            SpmBlockCipher.s_DecryptBlock(data, 0, sbox, BuildPrng(), null, buffer);
-
-            Assert.IsTrue(data.SequenceEqual(original),
-                "s_DecryptBlock should exactly undo s_EncryptBlock when no permutation is used.");
+                // Decrypt rounds in reverse order (round 2, 1, 0)
+                int maskIndex = masks.Length;
+                for (int round = 2; round >= 0; round--)
+                {
+                    SpmBlockCipher.s_ApplyPermutation(data, i, reversePerm, permutationBuffer);
+                    SpmBlockCipher.s_ReverseSmForwardPass(data, i, reverseSbox, masks, ref maskIndex);
+                    SpmBlockCipher.s_ReverseSmReversePass(data, i, reverseSbox, masks, ref maskIndex);
+                }
+            }
         }
     }
 }

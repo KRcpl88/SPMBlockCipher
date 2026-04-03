@@ -1,0 +1,26 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace Spm.Tests
+{
+    [TestClass]
+    public static class TestConstants
+    {
+        public const string CodebookKey = "b6a4c072764a2233db9c23b0bc79c143";
+
+        public const string ExpectedEncryptOutput =
+            "8BE6EC2CEDFD5242B0C1D7E27DA901ED350FE3DBF00A824EDE9A2716619F9A4D" +
+            "D0418DE77DEFE5891BDBCA1F0ED6B544ACE3D5889AE3D5C4AF9FB5A19469D434" +
+            "FBFE6EFF4F44E4EA6DF61909EAD20EC03210C1B81F7C1B7AD70E44171FCECFB4" +
+            "93446ED2B896FF3D1D025CDE617C39F3415B45539915A9759E15DDBCC7F3A87E" +
+            "E85CA1F13F130D6574CDE16D00B7A90A0816C0818CFD545A2F627FA7FB8C53EE" +
+            "AE3D1E3DC5BB8EB77590CF3734ABD02CA1B46DB132A50319505FE5938D14EC51" +
+            "F3166A9FB7780E5465A901507F550754658F66EC0B6324C7A1FD102C25619CB5" +
+            "815137D1212E5B6E4223249CB448993306FB1F90BCC22D4EA7BE917AE294A7DB";
+
+        [AssemblyInitialize]
+        public static void InitializeTests(TestContext context)
+        {
+            SpmBlockCipher.InitCodebook(CodebookKey, SpmBlockCipher.BLOCK_MODE.Permutation);
+        }
+    }
+}

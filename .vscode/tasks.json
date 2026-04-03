@@ -41,6 +41,57 @@
             }
         },
         {
+            "label": "Build SpmBlockCipherNet (Release)",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "SpmCryptNet/SpmBlockCipherNet.csproj",
+                "--configuration",
+                "Release"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "clear": true
+            }
+        },
+        {
+            "label": "Build SpmBlockCipherNetTests (Release)",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "SpmCryptNetTests/SpmBlockCipherNetTests.csproj",
+                "--configuration",
+                "Release"
+            ],
+            "group": "build",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "clear": true
+            }
+        },
+        {
+            "label": "Run Unit Tests",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "SpmCryptNetTests/SpmBlockCipherNetTests.csproj",
+                "--configuration",
+                "Release"
+            ],
+            "group": "test",
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "clear": true
+            }
+        },
+        {
             "label": "Clean Solution",
             "type": "process",
             "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe",
