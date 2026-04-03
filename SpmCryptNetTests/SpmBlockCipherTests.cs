@@ -8,15 +8,12 @@ namespace Spm.Tests
     public class SpmBlockCipherTests
     {
         [TestMethod()]
-        public void PermutationEncryptTest()
+        public void EncryptDecryptTest()
         {
             byte[] key = null;
-            int retval = 0;
 
             SpmBlockCipher.PrintCipherName();
 
-            retval = SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
-            Assert.IsTrue(retval == 0);
             Assert.IsTrue(SpmBlockCipher.CodeBook[0] == 0xbe7d);
             Assert.IsTrue(SpmBlockCipher.CodeBook[0xffff] == 0x655c);
             Assert.IsTrue(SpmBlockCipher.PermutationCodeBook != null);
@@ -32,10 +29,11 @@ namespace Spm.Tests
             encryptor.SetKeys(key);
             decryptor.SetKeys(key);
 
-            TestEncryption(encryptor, decryptor, 0x8b, 0xdb);
+            TestEncryption(encryptor, decryptor, 0x8b, 0xdb,
+                TestConstants.ExpectedEncryptOutput);
         }
 
-        private static void TestEncryption(SpmBlockCipher encryptor, SpmBlockCipher decryptor, byte firstByte, byte lastByte)
+        private static void TestEncryption(SpmBlockCipher encryptor, SpmBlockCipher decryptor, byte firstByte, byte lastByte, string expectedHex = null)
         {
             int matchCount;
 
@@ -52,6 +50,14 @@ namespace Spm.Tests
 
             Assert.IsTrue(matchCount < 4);
 
+            if (expectedHex != null)
+            {
+                byte[] expected = Util.HexToBin(expectedHex);
+                int fullMatch = CompareBytes(expected, buffer);
+                Assert.IsTrue(fullMatch == buffer.Length,
+                    $"Encryption output regression: expected {expectedHex} but got {Util.Bin2Hex(buffer)}");
+            }
+
             decryptor.Decrypt(buffer);
             matchCount = CompareBytes(testData, buffer);
 
@@ -59,10 +65,8 @@ namespace Spm.Tests
         }
 
         [TestMethod()]
-        public void NonceTest()
+        public void ApplyNonceTest()
         {
-            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
-
             byte[] nonce = Util.HexToBin("3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79");
             Assert.IsTrue(nonce.Length == SpmBlockCipher.GetKeyWidth());
 
@@ -76,7 +80,8 @@ namespace Spm.Tests
             Util.ApplyNonce(nonce, key, encryptor);
             Util.ApplyNonce(nonce, key, decryptor);
 
-            TestEncryption(encryptor, decryptor, 0xe0, 0xfa);
+            TestEncryption(encryptor, decryptor, 0xe0, 0xfa,
+                "E00D98786D3CFED49DD871ED28AF0FB12F79DAA5B92DF63705E12EC34A4445B0D54B29DF198F96974F360F20945C66783B1B8514FDC8B1F704CF99DD58705EC2AACF9F7C8D1D32FC29572B590D663D8F55AC3A15094276FF4110280AA59656122C603A4959BE704630C1DC8C9970E4393F80DE6FD0770478B8BFAE7955FADFFBD4BC2A3C3D9D3F6A82B05836BD943D450F745DE39E4F7535BCEF281EED6E51585F8E28EB5E0E91252ACE069D331F68F359A333902FFBCA3D7890603F893ED9A846D5C768824FE69A28BE0FB07A70DC9A5E2CDF11A736719CE477D272EBD27BC40C0B20FB0C862D389560029E6FAEC40ED73D2B026C1A7E91CADF6F49FE5E99FA");
         }
 
         private static int CompareBytes(byte[] pTestData, byte[] pBuffer)
@@ -100,7 +105,6 @@ namespace Spm.Tests
         {
             int matchCount;
             int i;
-            SpmBlockCipher.InitCodebook("b6a4c072764a2233db9c23b0bc79c143", SpmBlockCipher.BLOCK_MODE.Permutation);
 
             byte[] key;
 

@@ -90,12 +90,19 @@ namespace Spm
             return bin;
         }
 
+        public static string Bin2Hex(byte[] bin)
+        {
+            var sb = new StringBuilder(bin.Length * 2);
+            foreach (byte c in bin)
+            {
+                sb.AppendFormat("{0:X2}", c);
+            }
+            return sb.ToString();
+        }
+
         public static void PrintBin(byte[] bin)
         {
-            foreach(byte c in bin)
-            {
-                Console.Write("{0:X2}", c);
-            }
+            Console.Write(Bin2Hex(bin));
         }
 
         public static void ApplyNonce(byte[] nonce, byte[] key, SpmBlockCipher cryptor)
