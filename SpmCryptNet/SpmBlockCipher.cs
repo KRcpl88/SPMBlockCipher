@@ -42,7 +42,7 @@ namespace Spm
 
         public static void PrintCipherName()
         {
-            Console.Write("{0} bit SpmBlockCipher64 with {1} bit blocksize, {2} bit sbox, and ",
+            Console.Write("{0} bit SpmBlockCipher64 v2.0.20260403 with {1} bit blocksize, {2} bit sbox, and ",
                 GetKeyWidth() * 8,
                 BlockSizeBits,
                 SpmSBoxWidthBits);

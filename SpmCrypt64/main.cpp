@@ -708,7 +708,7 @@ int _tmain(int argc, _TCHAR* argv[])
         return -1;
     }
 
-    printf("\nSubstitutionPermutationMask cipher 64 bit version 2.0.20220613\n");
+    printf("\nSubstitutionPermutationMask cipher 64 bit version 2.0.20260403\n");
 
     if (((*(argv[1])) == 'L') || ((*(argv[1])) == 'l'))
     {

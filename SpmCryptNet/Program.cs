@@ -8,6 +8,7 @@ namespace Spm
         {
             if (args.Length < 5)
             {
+                SpmBlockCipher.PrintCipherName();
                 throw new ArgumentException("usage: E|EP|D|DP filein fileout key|password codebook");
             }
 
@@ -41,6 +42,7 @@ namespace Spm
                     Util.FbcDecryptFile(args[1], args[2], key);
                     break;
                 default:
+                    SpmBlockCipher.PrintCipherName();
                     throw new ArgumentException("usage: E|EP|D|DP filein fileout key|password codebook");
             }
         }
