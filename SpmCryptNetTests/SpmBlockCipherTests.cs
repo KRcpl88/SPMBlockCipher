@@ -68,7 +68,6 @@ namespace Spm.Tests
             Assert.IsTrue(matchCount == testData.Length);
         }
 
-
         [TestMethod()]
         public void ApplyNonceTest()
         {

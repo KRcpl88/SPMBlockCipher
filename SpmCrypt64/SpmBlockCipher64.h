@@ -102,7 +102,7 @@ public:
 
     static void s_PrintCipherName()
     {
-        printf("%lu bit SpmBlockCipher64 v1.0 with %lu bit blocksize, %lu bit sbox, and ", 
+        printf("%lu bit SpmBlockCipher64 v2.0.20260403 with %lu bit blocksize, %lu bit sbox, and ", 
             static_cast<unsigned long>(s_GetKeyWidth() * 8 -2),
             static_cast<unsigned long>(k_cSpmBlockSizeBits),
             static_cast<unsigned long>(k_cSpmSBoxWidthBits));
