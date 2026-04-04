@@ -324,8 +324,10 @@ namespace Spm.Tests
 
             // Prepare the same two-block test data used by EncryptDecryptTest.
             var testData = new byte[SpmBlockCipher.BlockSizeBytes * 2];
-            System.Text.Encoding.UTF8.GetBytes("Block 1").CopyTo(testData, 0);
-            System.Text.Encoding.UTF8.GetBytes("Block 2").CopyTo(testData, (int)SpmBlockCipher.BlockSizeBytes);
+            System.Text.Encoding.UTF8.GetBytes("Block 1        |               |               |               |               |               |               |               |")
+                .CopyTo(testData, 0);
+            System.Text.Encoding.UTF8.GetBytes("Block 2        |               |               |               |               |               |               |               |")
+                .CopyTo(testData, (int)SpmBlockCipher.BlockSizeBytes);
 
             var buffer = new byte[SpmBlockCipher.BlockSizeBytes * 2];
             testData.CopyTo(buffer, 0);
@@ -334,6 +336,8 @@ namespace Spm.Tests
 
             // Validate the encrypted output matches the known regression value.
             byte[] expected = Util.HexToBin(TestConstants.ExpectedEncryptOutput);
+            Assert.IsTrue(buffer.Length == expected.Length,
+                $"Decomposed encryption output length does not match expected.\nGot: {buffer.Length}"); 
             Assert.IsTrue(buffer.SequenceEqual(expected),
                 $"Decomposed encryption output does not match expected.\nGot: {Util.Bin2Hex(buffer)}");
 
