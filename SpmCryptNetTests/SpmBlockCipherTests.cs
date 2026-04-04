@@ -29,33 +29,37 @@ namespace Spm.Tests
             encryptor.SetKeys(key);
             decryptor.SetKeys(key);
 
-            TestEncryption(encryptor, decryptor, 0x8b, 0xdb,
+            TestEncryption(encryptor, decryptor,
                 TestConstants.ExpectedEncryptOutput);
         }
 
-        private static void TestEncryption(SpmBlockCipher encryptor, SpmBlockCipher decryptor, byte firstByte, byte lastByte, string expectedHex = null)
+        private static void TestEncryption(SpmBlockCipher encryptor, SpmBlockCipher decryptor, string expectedHex = null)
         {
             int matchCount;
 
             var testData = new byte[SpmBlockCipher.BlockSizeBytes * 2];
-            Encoding.UTF8.GetBytes("Block 1").CopyTo(testData, 0);
-            Encoding.UTF8.GetBytes("Block 2").CopyTo(testData, (int)SpmBlockCipher.BlockSizeBytes);
+            System.Text.Encoding.UTF8.GetBytes("Block 1        |               |               |               |               |               |               |               |")
+                .CopyTo(testData, 0);
+            System.Text.Encoding.UTF8.GetBytes("Block 2        |               |               |               |               |               |               |               |")
+                .CopyTo(testData, (int)SpmBlockCipher.BlockSizeBytes);
 
-            var buffer = new byte[SpmBlockCipher.BlockSizeBytes * 2];
+            var buffer = new byte[testData.Length];
             testData.CopyTo(buffer, 0);
             encryptor.Encrypt(buffer);
             matchCount = CompareBytes(testData, buffer);
-            Assert.IsTrue(buffer[0] == firstByte);
-            Assert.IsTrue(buffer[SpmBlockCipher.BlockSizeBytes * 2 - 1] == lastByte);
 
             Assert.IsTrue(matchCount < 4);
 
             if (expectedHex != null)
             {
                 byte[] expected = Util.HexToBin(expectedHex);
-                int fullMatch = CompareBytes(expected, buffer);
-                Assert.IsTrue(fullMatch == buffer.Length,
-                    $"Encryption output regression: expected {expectedHex} but got {Util.Bin2Hex(buffer)}");
+
+                Assert.IsTrue(buffer.Length == expected.Length,
+                    $"Decomposed encryption output length does not match expected.\nGot: {buffer.Length}"); 
+
+                Assert.IsTrue(((ReadOnlySpan<byte>)buffer).SequenceEqual(expected),
+                    $"Decomposed encryption output does not match expected.\nGot: {Util.Bin2Hex(buffer)}");                
+
             }
 
             decryptor.Decrypt(buffer);
@@ -63,6 +67,7 @@ namespace Spm.Tests
 
             Assert.IsTrue(matchCount == testData.Length);
         }
+
 
         [TestMethod()]
         public void ApplyNonceTest()
@@ -80,8 +85,8 @@ namespace Spm.Tests
             Util.ApplyNonce(nonce, key, encryptor);
             Util.ApplyNonce(nonce, key, decryptor);
 
-            TestEncryption(encryptor, decryptor, 0xe0, 0xfa,
-                "E00D98786D3CFED49DD871ED28AF0FB12F79DAA5B92DF63705E12EC34A4445B0D54B29DF198F96974F360F20945C66783B1B8514FDC8B1F704CF99DD58705EC2AACF9F7C8D1D32FC29572B590D663D8F55AC3A15094276FF4110280AA59656122C603A4959BE704630C1DC8C9970E4393F80DE6FD0770478B8BFAE7955FADFFBD4BC2A3C3D9D3F6A82B05836BD943D450F745DE39E4F7535BCEF281EED6E51585F8E28EB5E0E91252ACE069D331F68F359A333902FFBCA3D7890603F893ED9A846D5C768824FE69A28BE0FB07A70DC9A5E2CDF11A736719CE477D272EBD27BC40C0B20FB0C862D389560029E6FAEC40ED73D2B026C1A7E91CADF6F49FE5E99FA");
+            TestEncryption(encryptor, decryptor,
+                "802E3D2D5F801EB87F58020BDAAA478A17A6E8D90F654293C0C0C2FC2B02AB7ECB0E2C61147FBDE06F76A75E519AA5B2B5E829E83DCF758EABD9E2A372FE7BF45185848FA91D82D3F66BCE67C2F3A1B7CBE80DCB2102FF69C80D1F54C2E08DD561BFA544C1968A30AEDA2389281647618546A99BE2F283D13628D1ADFCE5DF032ED00A47D1A2320A912464F9FEF727848966D29F52656BF34EAFE1121ECAACA51802EA9E538ADE756136819CA704D8CB96C94211B60B4C7D949549732081B659960D7D1BDC0B1F770346826378081D1D1BC9EDB0F826260A1FC8CF4FBA3ADFF369BE67314CF897437460B4DA6A19E9973B44E7D9781FB5AFB3F8A034B905BB36");
         }
 
         private static int CompareBytes(byte[] pTestData, byte[] pBuffer)
