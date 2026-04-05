@@ -61,6 +61,11 @@ namespace Spm
             return _key;
         }
 
+        public int GetIdx()
+        {
+            return _idx;
+        }
+
         public static uint GetKeyWidth()
         {
             uint keyWidth;
