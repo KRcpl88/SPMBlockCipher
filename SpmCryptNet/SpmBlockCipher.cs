@@ -365,8 +365,10 @@ namespace Spm
             {
                 _sboxPrng.GetState(),
                 _sboxPrng.GetKey(),
+                (SPM_WORD)_sboxPrng.GetIdx(),
                 _maskPrng.GetState(),
-                _maskPrng.GetKey()
+                _maskPrng.GetKey(),
+                (SPM_WORD)_maskPrng.GetIdx()
             };
         }
 
