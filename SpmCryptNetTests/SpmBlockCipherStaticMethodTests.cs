@@ -381,12 +381,26 @@ namespace Spm.Tests
         {
             var permutationBuffer = new byte[SpmBlockCipher.BlockSizeBytes];
 
+            // Expected block permutations after shuffle
+            string[] encBlockPermutation = [
+                // block 0
+                "722A235128132F4D7D080E2D4A7E204F5D582C145B0005500B4447733D484C0C" +
+                "123C6F5A1C177C2B335C663E6C64635443365F6B563F320F1F24795746776D4E" +
+                "3571417A256A596570753B7B031A151934017F162168533927181B060D076E1E" +
+                "787460623A09024922043026760A401D29674231454B37526155105E2E691138",
+
+                // block 1
+                "66061E331B045524355418750857347A3258375E60744D4E41382D442161395D" +
+                "633E760547534248720E100B3F13701219506B112765221D253A6E2B430F4F45" +
+                "303D735B09024A235A6C790C4C647C6F003146563C7F2C71671A7D0117072051" +
+                "6236402E7B0D77034B2F5F591F296A6952165C2A4914263B6D287E7815681C0A" ];
+
             for (int i = 0; i < data.Length; i += (int)SpmBlockCipher.BlockSizeBytes)
             {
                 // Per-block permutation shuffle (same as ShuffleBlockPermutation)
                 byte[] perm = SpmBlockCipher.s_ShuffleBlockPermutation(blockPermutation, sboxPrng);
-                Assert.IsFalse(perm.SequenceEqual(blockPermutation),
-                    $"s_ShuffleBlockPermutation should produce a shuffled permutation different from the source for block at offset {i}.");
+                string permHex = Util.Bin2Hex(perm);
+                Assert.AreEqual(permHex, encBlockPermutation[i / (int)SpmBlockCipher.BlockSizeBytes], $"s_ShuffleBlockPermutation should produce the expected permutation for block {i / (int)SpmBlockCipher.BlockSizeBytes}.\nGot: {permHex}");
 
                 // 3 rounds per block
                 for (int round = 0; round < 3; round++)
