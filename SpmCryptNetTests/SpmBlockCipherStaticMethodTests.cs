@@ -385,13 +385,26 @@ namespace Spm.Tests
             {
                 // Per-block permutation shuffle (same as ShuffleBlockPermutation)
                 byte[] perm = SpmBlockCipher.s_ShuffleBlockPermutation(blockPermutation, sboxPrng);
+                Assert.IsFalse(perm.SequenceEqual(blockPermutation),
+                    $"s_ShuffleBlockPermutation should produce a shuffled permutation different from the source for block at offset {i}.");
 
                 // 3 rounds per block
                 for (int round = 0; round < 3; round++)
                 {
+                    var before = data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).ToArray();
                     SpmBlockCipher.s_SmForwardPass(data, i, sbox, maskPrng);
+                    Assert.IsFalse(data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).SequenceEqual(before),
+                        $"s_SmForwardPass should change block data at offset {i}, round {round}.");
+
+                    before = data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).ToArray();
                     SpmBlockCipher.s_SmReversePass(data, i, sbox, maskPrng);
+                    Assert.IsFalse(data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).SequenceEqual(before),
+                        $"s_SmReversePass should change block data at offset {i}, round {round}.");
+
+                    before = data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).ToArray();
                     SpmBlockCipher.s_ApplyPermutation(data, i, perm, permutationBuffer);
+                    Assert.IsFalse(data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).SequenceEqual(before),
+                        $"s_ApplyPermutation should change block data at offset {i}, round {round}.");
                 }
             }
         }
@@ -409,6 +422,8 @@ namespace Spm.Tests
             {
                 // Per-block: compute the shuffled permutation, then its inverse
                 byte[] perm = SpmBlockCipher.s_ShuffleBlockPermutation(blockPermutation, sboxPrng);
+                Assert.IsFalse(perm.SequenceEqual(blockPermutation),
+                    $"s_ShuffleBlockPermutation should produce a shuffled permutation different from the source for block at offset {i}.");
                 var reversePerm = new byte[SpmBlockCipher.BlockSizeBytes];
                 for (int k = 0; k < perm.Length; k++)
                     reversePerm[perm[k]] = (byte)k;
@@ -422,9 +437,20 @@ namespace Spm.Tests
                 int maskIndex = masks.Length;
                 for (int round = 2; round >= 0; round--)
                 {
+                    var before = data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).ToArray();
                     SpmBlockCipher.s_ApplyPermutation(data, i, reversePerm, permutationBuffer);
+                    Assert.IsFalse(data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).SequenceEqual(before),
+                        $"s_ApplyPermutation should change block data at offset {i}, round {round}.");
+
+                    before = data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).ToArray();
                     SpmBlockCipher.s_ReverseSmForwardPass(data, i, reverseSbox, masks, ref maskIndex);
+                    Assert.IsFalse(data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).SequenceEqual(before),
+                        $"s_ReverseSmForwardPass should change block data at offset {i}, round {round}.");
+
+                    before = data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).ToArray();
                     SpmBlockCipher.s_ReverseSmReversePass(data, i, reverseSbox, masks, ref maskIndex);
+                    Assert.IsFalse(data.Skip(i).Take((int)SpmBlockCipher.BlockSizeBytes).SequenceEqual(before),
+                        $"s_ReverseSmReversePass should change block data at offset {i}, round {round}.");
                 }
             }
         }
