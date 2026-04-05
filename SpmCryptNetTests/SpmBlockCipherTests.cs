@@ -29,6 +29,22 @@ namespace Spm.Tests
             encryptor.SetKeys(key);
             decryptor.SetKeys(key);
 
+            var encPrngState = encryptor.GetPrngStateKeys();
+            Assert.IsTrue(encPrngState[0] == 0x2FC1CF3A7257322FUL); // encryptor sboxPrng state
+            Assert.IsTrue(encPrngState[1] == 0x7230772473405021UL); // encryptor sboxPrng key
+            Assert.IsTrue(encPrngState[2] == 4UL);                  // encryptor sboxPrng idx
+            Assert.IsTrue(encPrngState[3] == 0x3077247340502164UL); // encryptor maskPrng state
+            Assert.IsTrue(encPrngState[4] == 0x7724734050216473UL); // encryptor maskPrng key
+            Assert.IsTrue(encPrngState[5] == 0UL);                  // encryptor maskPrng idx
+
+            var decPrngState = decryptor.GetPrngStateKeys();
+            Assert.IsTrue(decPrngState[0] == 0x2FC1CF3A7257322FUL); // decryptor sboxPrng state
+            Assert.IsTrue(decPrngState[1] == 0x7230772473405021UL); // decryptor sboxPrng key
+            Assert.IsTrue(decPrngState[2] == 4UL);                  // decryptor sboxPrng idx
+            Assert.IsTrue(decPrngState[3] == 0x3077247340502164UL); // decryptor maskPrng state
+            Assert.IsTrue(decPrngState[4] == 0x7724734050216473UL); // decryptor maskPrng key
+            Assert.IsTrue(decPrngState[5] == 0UL);                  // decryptor maskPrng idx
+
             TestEncryption(encryptor, decryptor,
                 TestConstants.ExpectedEncryptOutput);
         }

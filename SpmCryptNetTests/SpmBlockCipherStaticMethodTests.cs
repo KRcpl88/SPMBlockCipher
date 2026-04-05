@@ -312,8 +312,14 @@ namespace Spm.Tests
 
             var encSboxPrng = new SimplePrng();
             encSboxPrng.SetKeys(key, 0);
+            Assert.IsTrue(encSboxPrng.GetState() == 0x6472307724734050UL); // encSboxPrng state
+            Assert.IsTrue(encSboxPrng.GetKey()   == 0x7230772473405021UL); // encSboxPrng key
+            Assert.IsTrue(encSboxPrng.GetIdx()   == 0);                    // encSboxPrng idx
             var encMaskPrng = new SimplePrng();
             encMaskPrng.SetKeys(key, prngKeyWidth);
+            Assert.IsTrue(encMaskPrng.GetState() == 0x3077247340502164UL); // encMaskPrng state
+            Assert.IsTrue(encMaskPrng.GetKey()   == 0x7724734050216473UL); // encMaskPrng key
+            Assert.IsTrue(encMaskPrng.GetIdx()   == 0);                    // encMaskPrng idx
 
             var sbox = new ushort[SpmBlockCipher.SPM_SBOX_WIDTH];
             var reverseSbox = new ushort[SpmBlockCipher.SPM_SBOX_WIDTH];
@@ -345,8 +351,14 @@ namespace Spm.Tests
             // seeded identically (mirroring what Decrypt does with the same key).
             var decSboxPrng = new SimplePrng();
             decSboxPrng.SetKeys(key, 0);
+            Assert.IsTrue(decSboxPrng.GetState() == 0x6472307724734050UL); // decSboxPrng state
+            Assert.IsTrue(decSboxPrng.GetKey()   == 0x7230772473405021UL); // decSboxPrng key
+            Assert.IsTrue(decSboxPrng.GetIdx()   == 0);                    // decSboxPrng idx
             var decMaskPrng = new SimplePrng();
             decMaskPrng.SetKeys(key, prngKeyWidth);
+            Assert.IsTrue(decMaskPrng.GetState() == 0x3077247340502164UL); // decMaskPrng state
+            Assert.IsTrue(decMaskPrng.GetKey()   == 0x7724734050216473UL); // decMaskPrng key
+            Assert.IsTrue(decMaskPrng.GetIdx()   == 0);                    // decMaskPrng idx
 
             var decSbox = new ushort[SpmBlockCipher.SPM_SBOX_WIDTH];
             var decReverseSbox = new ushort[SpmBlockCipher.SPM_SBOX_WIDTH];
