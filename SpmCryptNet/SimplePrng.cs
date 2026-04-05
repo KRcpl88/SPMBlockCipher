@@ -51,6 +51,16 @@ namespace Spm
             return (SPM_SBOX_WORD)(BitConverter.ToInt16(_data, (_idx++) << 1));
         }
 
+        public SPM_WORD GetState()
+        {
+            return _state;
+        }
+
+        public SPM_WORD GetKey()
+        {
+            return _key;
+        }
+
         public static uint GetKeyWidth()
         {
             uint keyWidth;

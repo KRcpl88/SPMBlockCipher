@@ -359,6 +359,17 @@ namespace Spm
             PermuteSbox();
         }
 
+        public SPM_WORD[] GetPrngStateKeys()
+        {
+            return new SPM_WORD[]
+            {
+                _sboxPrng.GetState(),
+                _sboxPrng.GetKey(),
+                _maskPrng.GetState(),
+                _maskPrng.GetKey()
+            };
+        }
+
         public static void s_SmForwardPass(byte[] data, int blockOffset, SPM_SBOX_WORD[] sbox, SPM_PRNG maskPrng)
         {
             int k;
