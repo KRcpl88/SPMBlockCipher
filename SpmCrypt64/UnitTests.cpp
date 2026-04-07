@@ -8,6 +8,8 @@ void ParsePassword(__inout_z const char* pszPassword, __in size_t cbBin, __out_b
 void HexToBin(__inout_z char* pszHex, __in size_t cchBin, __out_ecount(cchBin) unsigned char* pBin);
 void PrintBin(__in_ecount(cBin) unsigned char* pBin, __in size_t cBin);
 HRESULT MakeKey(    BYTE* pbKey,    size_t           cbKey);
+int FbcEncryptFile(const char* pPlaintext, const char* pCiphertext, const unsigned char* pKey, size_t cbKey);
+int FbcDecryptFile(const char* pCiphertext, const char* pPlaintext, const unsigned char* pKey, size_t cbKey);
 #ifdef _DEBUG
 
 int UnitTests::s_CompareBytes(__in_ecount(cBin) unsigned char* pBin1, __in_ecount(cBin) unsigned char* pBin2, __in size_t cBin)
@@ -31,7 +33,6 @@ void UnitTests::s_PermutationEncryptTest()
     unsigned char* pKey = new unsigned char[FBC_CRYPT::s_GetKeyWidth()];
     int nRetVal = 0;
     int nMatchCount = 0;
-    char pPassword[16] = "P@s$w0rd!";
 
     ASSERT(FBC_CRYPT::s_rgCodebook[0] == 0xbe7d);
     ASSERT(FBC_CRYPT::s_rgCodebook[0xffff] == 0x655c);
@@ -39,7 +40,7 @@ void UnitTests::s_PermutationEncryptTest()
     ASSERT(FBC_CRYPT::s_prgPermutationCodebook[0] == 0x23);
     ASSERT(FBC_CRYPT::s_prgPermutationCodebook[k_cSpmBlockSizeBytes-1] == 0x2f);
 
-    ::ParsePassword(pPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
+    ::ParsePassword(k_pszUnitTestPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
     ASSERT(FBC_CRYPT::s_ValidKey(pKey, FBC_CRYPT::s_GetKeyWidth()));
 
     unsigned char* pTestData = new unsigned char[k_cSpmBlockSizeBytes * 2];
@@ -98,7 +99,6 @@ void UnitTests::s_PrngTest()
 void UnitTests::s_NonceTest()
 {
     unsigned char* pKey;
-    char pPassword[16] = "P@s$w0rd!";
     char pNonceHex[65] = "3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79";
     FBC_CRYPT OneWayHash;
     unsigned char rgTemp[k_cSpmBlockSizeBytes] = { 0 };
@@ -110,7 +110,7 @@ void UnitTests::s_NonceTest()
     ASSERT(FBC_CRYPT::s_prgPermutationCodebook[0] == 0x23);
     ASSERT(FBC_CRYPT::s_prgPermutationCodebook[k_cSpmBlockSizeBytes - 1] == 0x2f);
 
-    ::ParsePassword(pPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
+    ::ParsePassword(k_pszUnitTestPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
     ASSERT(FBC_CRYPT::s_ValidKey(pKey, FBC_CRYPT::s_GetKeyWidth()));
 
     ::HexToBin(pNonceHex, ARRAYSIZE(rgNonce), rgNonce);
@@ -208,10 +208,9 @@ void UnitTests::s_TestPerfVsAes()
     unsigned char* pKey = new unsigned char[FBC_CRYPT::s_GetKeyWidth()];
     int nRetVal = 0;
     int nMatchCount = 0;
-    char pPassword[16] = "P@s$w0rd!";
     FBC_CRYPT fbcEncrypt;
 
-    ::ParsePassword(pPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
+    ::ParsePassword(k_pszUnitTestPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
     ASSERT(FBC_CRYPT::s_ValidKey(pKey, FBC_CRYPT::s_GetKeyWidth()));
 
     MakeKey(prgData, cbData);
@@ -272,6 +271,59 @@ void UnitTests::s_TestPerfVsAes()
     }
 
 
+}
+
+void UnitTests::s_EncryptDecryptTest()
+{
+    const char* pszPlaintextFile  = "test_plain.tmp";
+    const char* pszCiphertextFile = "test_cipher.tmp";
+    const char* pszDecryptedFile  = "test_decrypted.tmp";
+    const char* pszTestData       = "Hello, SPM Block Cipher! This is a unit test for FbcEncryptFile and FbcDecryptFile.";
+    size_t      cbTestData        = strlen(pszTestData);
+    unsigned char* pKey           = NULL;
+    HANDLE      hFile             = INVALID_HANDLE_VALUE;
+    DWORD       dwBytesWritten    = 0;
+    DWORD       dwBytesRead       = 0;
+    unsigned char* pDecrypted     = NULL;
+    int         nMatchCount       = 0;
+    int         nRetVal           = 0;
+
+    // Create the plaintext temp file
+    hFile = ::CreateFile(pszPlaintextFile, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    ASSERT(INVALID_HANDLE_VALUE != hFile);
+    ::WriteFile(hFile, pszTestData, static_cast<DWORD>(cbTestData), &dwBytesWritten, NULL);
+    ASSERT(dwBytesWritten == static_cast<DWORD>(cbTestData));
+    ::CloseHandle(hFile);
+
+    // Derive a key from a password
+    ::ParsePassword(k_pszUnitTestPassword, FBC_CRYPT::s_GetKeyWidth(), &pKey);
+    ASSERT(FBC_CRYPT::s_ValidKey(pKey, FBC_CRYPT::s_GetKeyWidth()));
+
+    // Encrypt the plaintext file
+    nRetVal = FbcEncryptFile(pszPlaintextFile, pszCiphertextFile, pKey, FBC_CRYPT::s_GetKeyWidth());
+    ASSERT(nRetVal == 0);
+
+    // Decrypt back to a new file
+    nRetVal = FbcDecryptFile(pszCiphertextFile, pszDecryptedFile, pKey, FBC_CRYPT::s_GetKeyWidth());
+    ASSERT(nRetVal == 0);
+
+    // Read decrypted file and compare with original plaintext
+    pDecrypted = new unsigned char[cbTestData];
+    hFile = ::CreateFile(pszDecryptedFile, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    ASSERT(INVALID_HANDLE_VALUE != hFile);
+    ::ReadFile(hFile, pDecrypted, static_cast<DWORD>(cbTestData), &dwBytesRead, NULL);
+    ASSERT(dwBytesRead == static_cast<DWORD>(cbTestData));
+    ::CloseHandle(hFile);
+
+    nMatchCount = s_CompareBytes(reinterpret_cast<unsigned char*>(const_cast<char*>(pszTestData)), pDecrypted, cbTestData);
+    ASSERT(nMatchCount == static_cast<int>(cbTestData));
+
+    // Clean up
+    delete[] pDecrypted;
+    delete[] pKey;
+    ::DeleteFile(pszPlaintextFile);
+    ::DeleteFile(pszCiphertextFile);
+    ::DeleteFile(pszDecryptedFile);
 }
 #endif //_DEBUG
 
