@@ -206,7 +206,7 @@ namespace Spm
         {
             var cryptor = new SpmBlockCipher();
             byte[] nonce;
-            UInt64 fileSize;
+            UInt32 fileSize;
 
             SpmBlockCipher.PrintCipherName();
 
@@ -214,7 +214,7 @@ namespace Spm
             {
                 nonce = GenerateRandomNonce();
 
-                fileSize = (UInt64)fileIn.Length;
+                fileSize = (UInt32)fileIn.Length;
                 using (FileStream fileOut = File.OpenWrite(ciphertext))
                 {
                     fileOut.Write(nonce);
@@ -231,7 +231,7 @@ namespace Spm
         {
             var cryptor = new SpmBlockCipher();
             var nonce = new byte[SpmBlockCipher.BlockSizeBytes];
-            var fileSize = new byte[sizeof(UInt64)];
+            var fileSize = new byte[sizeof(UInt32)];
             int bytesRead = 0;
 
             SpmBlockCipher.PrintCipherName();
@@ -253,17 +253,17 @@ namespace Spm
                 {
                     ApplyNonce(nonce, key, cryptor);
 
-                    FbcProcessFile(fileIn, fileOut, BitConverter.ToUInt64(fileSize), cryptor, EFileCryptProcess.Decrypt);
+                    FbcProcessFile(fileIn, fileOut, BitConverter.ToUInt32(fileSize), cryptor, EFileCryptProcess.Decrypt);
                 }
             }
         }
 
 
-        static void FbcProcessFile(FileStream fileIn, FileStream fileOut, UInt64 fileSize, SpmBlockCipher cryptor, EFileCryptProcess fileCryptProcess)
+        static void FbcProcessFile(FileStream fileIn, FileStream fileOut, UInt32 fileSize, SpmBlockCipher cryptor, EFileCryptProcess fileCryptProcess)
         {
             var buf = new byte[SpmBlockCipher.BlockSizeBytes];
             int bytesRead;
-            UInt64 totalBytes = 0;
+            UInt32 totalBytes = 0;
             var timer = new Stopwatch();
 
             timer.Start();
@@ -289,7 +289,7 @@ namespace Spm
                             break;
                     }
 
-                    totalBytes += (UInt64)bytesRead;
+                    totalBytes += (UInt32)bytesRead;
 
                     if (totalBytes < fileSize)
                     {
