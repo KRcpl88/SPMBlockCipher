@@ -742,6 +742,7 @@ int _tmain(int argc, _TCHAR* argv[])
         UnitTests::s_NonceTest();
         //UnitTests::s_SingleBitFlipTest();
         UnitTests::s_TestPerfVsAes();
+        UnitTests::s_EncryptDecryptTest();
 
         printf("All Tests passed\n");
         return 0;

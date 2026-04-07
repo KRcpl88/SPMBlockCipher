@@ -9,6 +9,7 @@ public:
     static int s_CompareBytes(__in_ecount(cBin) unsigned char* pBin1, __in_ecount(cBin) unsigned char* pBin2, __in size_t cBin);
     static void s_SingleBitFlipTest();
     static void s_TestPerfVsAes();
+    static void s_EncryptDecryptTest();
 #endif
 };
 
