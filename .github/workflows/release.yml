@@ -56,10 +56,10 @@ jobs:
           --configuration Release
           --runtime win-x64
           --self-contained true
-          -p:PublishDir=artifacts/dotnet/
+          -p:PublishDir=${{ github.workspace }}/artifacts/dotnet/
 
       - name: Package artifacts
-        run: Compress-Archive -Path artifacts/dotnet/* -DestinationPath artifacts/SpmBlockCipher-dotnet-win-x64.zip
+        run: Compress-Archive -Path ${{ github.workspace }}/artifacts/dotnet/* -DestinationPath ${{ github.workspace }}/artifacts/SpmBlockCipher-dotnet-win-x64.zip
 
       - name: Upload to release
         env:
@@ -69,11 +69,11 @@ jobs:
           $tag = "${{ steps.tag.outputs.value }}"
           $exists = gh release view $tag --repo ${{ github.repository }} 2>&1
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag artifacts/SpmBlockCipher-dotnet-win-x64.zip `
+            gh release upload $tag ${{ github.workspace }}/artifacts/SpmBlockCipher-dotnet-win-x64.zip `
               --repo ${{ github.repository }} --clobber
           } else {
             gh release create $tag `
               --title "Release $tag" `
               --generate-notes `
-              artifacts/SpmBlockCipher-dotnet-win-x64.zip
+              ${{ github.workspace }}/artifacts/SpmBlockCipher-dotnet-win-x64.zip
           }
