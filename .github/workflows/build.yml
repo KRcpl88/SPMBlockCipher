@@ -37,7 +37,7 @@ jobs:
           dotnet publish SpmCryptNet/SpmBlockCipherNet.csproj
           --configuration Release
           --runtime win-x64
-          --self-contained true
+          --self-contained false
           -p:PublishDir=publish/dotnet/
 
       - name: Upload .NET artifact
