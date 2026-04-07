@@ -243,9 +243,10 @@ namespace Spm.Tests
         [TestMethod()]
         public void FbcEncryptDecryptFileTest()
         {
-            string plaintextFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            string ciphertextFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            string decryptedFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            string basePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            string plaintextFile = basePath + ".plaintext.txt";
+            string ciphertextFile = basePath + ".ciphertext.spmbc";
+            string decryptedFile = basePath + ".decrypted.txt";
 
             try
             {
