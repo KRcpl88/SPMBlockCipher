@@ -59,7 +59,7 @@ jobs:
           -p:PublishDir=${{ github.workspace }}/artifacts/dotnet/
 
       - name: Package artifacts
-        run: Compress-Archive -Path ${{ github.workspace }}/artifacts/dotnet/* -DestinationPath ${{ github.workspace }}/artifacts/SpmBlockCipher-dotnet-win-x64.zip
+        run: Compress-Archive -Path ${{ github.workspace }}/artifacts/dotnet/SpmBlockCipher64.* -DestinationPath ${{ github.workspace }}/artifacts/SpmBlockCipher-dotnet-win-x64.zip
 
       - name: Upload to release
         env:
