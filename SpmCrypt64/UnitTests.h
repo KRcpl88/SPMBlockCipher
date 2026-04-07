@@ -1,4 +1,9 @@
 #pragma once
+
+#ifdef _DEBUG
+static const LPCSTR k_pszUnitTestPassword = "P@s$w0rd!";
+#endif
+
 class UnitTests
 {
 public:
