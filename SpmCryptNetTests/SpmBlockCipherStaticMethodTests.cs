@@ -303,7 +303,7 @@ namespace Spm.Tests
         [TestMethod()]
         public void DecomposedEncryptDecryptTest()
         {
-            byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+            byte[] key = Util.ParsePassword(TestConstants.TestPassword, SpmBlockCipher.GetKeyWidth());
             Assert.IsTrue(SpmBlockCipher.s_ValidKey(key));
 
             // Build the same state that SetKeys produces: two PRNGs (sbox + mask),

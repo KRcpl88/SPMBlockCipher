@@ -20,7 +20,7 @@ namespace Spm.Tests
             Assert.IsTrue(SpmBlockCipher.PermutationCodeBook[0] == 0x23);
             Assert.IsTrue(SpmBlockCipher.PermutationCodeBook[SpmBlockCipher.BlockSizeBytes - 1] == 0x2f);
 
-            key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+            key = Util.ParsePassword(TestConstants.TestPassword, SpmBlockCipher.GetKeyWidth());
             Assert.IsTrue(SpmBlockCipher.s_ValidKey(key));
 
             var encryptor = new SpmBlockCipher();
@@ -90,7 +90,7 @@ namespace Spm.Tests
             byte[] nonce = Util.HexToBin("3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
             Assert.IsTrue(nonce.Length == SpmBlockCipher.BlockSizeBytes);
 
-            byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+            byte[] key = Util.ParsePassword(TestConstants.TestPassword, SpmBlockCipher.GetKeyWidth());
             Assert.IsTrue(key.Length == SpmBlockCipher.GetKeyWidth());
             Assert.IsTrue(SpmBlockCipher.s_ValidKey(key));
 
