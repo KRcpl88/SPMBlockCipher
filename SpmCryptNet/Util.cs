@@ -125,7 +125,7 @@ namespace Spm
 
             oneWayHash.Encrypt(block);
 
-            block.AsSpan(0, nonce.Length).CopyTo(encryptedNonce);
+            block.AsSpan(0, encryptedNonce.Length).CopyTo(encryptedNonce);
 
 #if DEBUG
             Console.Write("Encrypted Nonce: ");
@@ -151,6 +151,11 @@ namespace Spm
             }
 
             return random;
+        }
+
+        public static byte[] GenerateRandomNonce()
+        {
+            return MakeKey(SpmBlockCipher.BlockSizeBytes);
         }
 
         public static byte[] GenNonceFromInput(byte[] hashKey = null)
@@ -207,7 +212,7 @@ namespace Spm
 
             using (FileStream fileIn = File.OpenRead(plaintext))
             {
-                nonce = MakeKey(SpmBlockCipher.BlockSizeBytes);
+                nonce = GenerateRandomNonce();
 
                 fileSize = (UInt64)fileIn.Length;
                 using (FileStream fileOut = File.OpenWrite(ciphertext))
@@ -225,7 +230,7 @@ namespace Spm
         public static void FbcDecryptFile(string ciphertext, string plaintext, byte[] key)
         {
             var cryptor = new SpmBlockCipher();
-            var nonce = new byte[SpmBlockCipher.GetKeyWidth()];
+            var nonce = new byte[SpmBlockCipher.BlockSizeBytes];
             var fileSize = new byte[sizeof(UInt64)];
             int bytesRead = 0;
 

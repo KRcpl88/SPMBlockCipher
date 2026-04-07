@@ -87,8 +87,8 @@ namespace Spm.Tests
         [TestMethod()]
         public void ApplyNonceTest()
         {
-            byte[] nonce = Util.HexToBin("3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79");
-            Assert.IsTrue(nonce.Length == SpmBlockCipher.GetKeyWidth());
+            byte[] nonce = Util.HexToBin("3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+            Assert.IsTrue(nonce.Length == SpmBlockCipher.BlockSizeBytes);
 
             byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
             Assert.IsTrue(key.Length == SpmBlockCipher.GetKeyWidth());
