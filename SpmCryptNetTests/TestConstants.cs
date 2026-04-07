@@ -6,6 +6,7 @@ namespace Spm.Tests
     public static class TestConstants
     {
         public const string CodebookKey = "b6a4c072764a2233db9c23b0bc79c143";
+        public const string TestPassword = "P@s$w0rd!";
 
         public const string ExpectedEncryptOutput =
             "3D65962F36523E98649EFE005A57D5D80376374F8F2600923D98D9C5766AB9CE" +

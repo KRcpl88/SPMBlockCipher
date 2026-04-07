@@ -71,7 +71,7 @@ namespace Spm.Tests
             byte[] nonce = Util.HexToBin("3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
             Assert.IsTrue(nonce.Length == SpmBlockCipher.BlockSizeBytes);
 
-            byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+            byte[] key = Util.ParsePassword(TestConstants.TestPassword, SpmBlockCipher.GetKeyWidth());
             Assert.IsTrue(SpmBlockCipher.s_ValidKey(key));
 
             var encryptor = new SpmBlockCipher();
@@ -96,7 +96,7 @@ namespace Spm.Tests
         {
             byte[] nonce1= Util.HexToBin("3cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
             byte[] nonce2 = Util.HexToBin("4cd20273b6a4c072764b0bc79c14314b2233db9c230bc32aa37b6a4469c2bc79000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
-            byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+            byte[] key = Util.ParsePassword(TestConstants.TestPassword, SpmBlockCipher.GetKeyWidth());
 
             byte[] testData = new byte[SpmBlockCipher.BlockSizeBytes];
             for (int idx = 0; idx < testData.Length; idx++) testData[idx] = (byte)(idx + 1);
@@ -174,8 +174,8 @@ namespace Spm.Tests
         [TestMethod()]
         public void ParsePasswordTest_Deterministic()
         {
-            byte[] key1 = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
-            byte[] key2 = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+            byte[] key1 = Util.ParsePassword(TestConstants.TestPassword, SpmBlockCipher.GetKeyWidth());
+            byte[] key2 = Util.ParsePassword(TestConstants.TestPassword, SpmBlockCipher.GetKeyWidth());
 
             Assert.IsNotNull(key1);
             Assert.IsNotNull(key2);
@@ -252,7 +252,7 @@ namespace Spm.Tests
                 byte[] originalContent = System.Text.Encoding.UTF8.GetBytes("Hello, SPM Block Cipher! This is a short plaintext file for testing.");
                 File.WriteAllBytes(plaintextFile, originalContent);
 
-                byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+                byte[] key = Util.ParsePassword(TestConstants.TestPassword, SpmBlockCipher.GetKeyWidth());
 
                 Util.FbcEncryptFile(plaintextFile, ciphertextFile, key);
                 Util.FbcDecryptFile(ciphertextFile, decryptedFile, key);
