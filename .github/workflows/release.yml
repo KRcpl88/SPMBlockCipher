@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - '[0-9]*.[0-9]*.[0-9]*'
 
 permissions:
   contents: read
@@ -17,7 +18,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: write
     steps:
@@ -31,14 +32,13 @@ jobs:
 
       - name: Package artifacts
         run: |
-          cd artifacts
-          zip -r SpmBlockCipher-dotnet-win-x64.zip dotnet/
+          Compress-Archive -Path artifacts/dotnet/* -DestinationPath artifacts/SpmBlockCipher-dotnet-win-x64.zip
 
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "Release ${{ github.ref_name }}" \
-            --generate-notes \
+          gh release create "${{ github.ref_name }}" `
+            --title "Release ${{ github.ref_name }}" `
+            --generate-notes `
             artifacts/SpmBlockCipher-dotnet-win-x64.zip
