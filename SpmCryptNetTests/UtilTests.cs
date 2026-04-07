@@ -240,5 +240,35 @@ namespace Spm.Tests
             Assert.IsFalse(key1.SequenceEqual(key2));
         }
 
+        [TestMethod()]
+        public void FbcEncryptDecryptFileTest()
+        {
+            string plaintextFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            string ciphertextFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            string decryptedFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+            try
+            {
+                byte[] originalContent = System.Text.Encoding.UTF8.GetBytes("Hello, SPM Block Cipher! This is a short plaintext file for testing.");
+                File.WriteAllBytes(plaintextFile, originalContent);
+
+                byte[] key = Util.ParsePassword("P@s$w0rd!", SpmBlockCipher.GetKeyWidth());
+
+                Util.FbcEncryptFile(plaintextFile, ciphertextFile, key);
+                Util.FbcDecryptFile(ciphertextFile, decryptedFile, key);
+
+                byte[] decryptedContent = File.ReadAllBytes(decryptedFile);
+
+                Assert.IsTrue(decryptedContent.SequenceEqual(originalContent),
+                    "Decrypted file content does not match original plaintext.");
+            }
+            finally
+            {
+                if (File.Exists(plaintextFile)) File.Delete(plaintextFile);
+                if (File.Exists(ciphertextFile)) File.Delete(ciphertextFile);
+                if (File.Exists(decryptedFile)) File.Delete(decryptedFile);
+            }
+        }
+
     }
 }
